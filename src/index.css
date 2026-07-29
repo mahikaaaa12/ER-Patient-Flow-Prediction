@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@theme {
+  /* Neutrals */
+  --color-bg: #F7F9FC;
+  --color-surface: #FFFFFF;
+  --color-navy: #0B2545;
+  --color-navy-muted: #4B5B71;
+  --color-navy-soft: #8494A8;
+  --color-border: #E1E7EF;
+  --color-border-strong: #CBD5E1;
+
+  /* Accents */
+  --color-blue: #1B57D8;
+  --color-blue-dark: #123E9E;
+  --color-blue-tint: #EAF0FE;
+  --color-teal: #0E8F82;
+  --color-teal-tint: #E6F5F3;
+  --color-green: #12895A;
+  --color-green-tint: #E6F5EC;
+  --color-amber: #B9740C;
+  --color-amber-tint: #FBF0DD;
+  --color-red: #C22A2A;
+  --color-red-tint: #FBEAEA;
+
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  --shadow-soft: 0 1px 2px rgba(11, 37, 69, 0.04), 0 8px 24px -12px rgba(11, 37, 69, 0.12);
+  --shadow-lift: 0 4px 8px rgba(11, 37, 69, 0.04), 0 16px 40px -16px rgba(11, 37, 69, 0.18);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-navy);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100svh;
+  overflow-x: clip;
+}
+
+::selection {
+  background: var(--color-blue-tint);
+  color: var(--color-blue-dark);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Signature vital-line motif used as a section divider / ambient watermark */
+.vital-rule {
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-border-strong) 15%,
+    var(--color-border-strong) 85%,
+    transparent 100%
+  );
+}
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -200;
+  }
+}
+
+.animate-flow {
+  animation: dash-flow 6s linear infinite;
+}
+
+@keyframes soft-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 2.2s ease-in-out infinite;
+}

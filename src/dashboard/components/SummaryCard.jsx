@@ -1,0 +1,38 @@
+import { ArrowUpRight, ArrowDownRight } from "lucide-react";
+
+const TONE = {
+  blue: { icon: "text-blue", bg: "bg-blue-tint" },
+  teal: { icon: "text-teal", bg: "bg-teal-tint" },
+  green: { icon: "text-green", bg: "bg-green-tint" },
+  amber: { icon: "text-amber", bg: "bg-amber-tint" },
+  red: { icon: "text-red", bg: "bg-red-tint" },
+};
+
+export default function SummaryCard({ label, value, trend, trendDirection, tone = "blue", icon: Icon }) {
+  const t = TONE[tone] || TONE.blue;
+  const TrendIcon = trendDirection === "down" ? ArrowDownRight : ArrowUpRight;
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-5 shadow-soft">
+      <div className="flex items-start justify-between">
+        <p className="text-[13px] font-medium uppercase tracking-wide text-navy-soft">{label}</p>
+        {Icon && (
+          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${t.bg} ${t.icon}`}>
+            <Icon className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
+          </span>
+        )}
+      </div>
+      <p className="mt-3 font-mono text-3xl font-semibold text-navy sm:text-[2rem]">{value}</p>
+      {trend && (
+        <p
+          className={`mt-2 inline-flex items-center gap-1 text-[12.5px] font-medium ${
+            trendDirection === "down" ? "text-green" : "text-navy-soft"
+          }`}
+        >
+          <TrendIcon className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" />
+          {trend}
+        </p>
+      )}
+    </div>
+  );
+}
