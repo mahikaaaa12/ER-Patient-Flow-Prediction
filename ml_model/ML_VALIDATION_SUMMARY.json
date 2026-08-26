@@ -1,0 +1,60 @@
+{
+  "audit_date": "2026-08-26",
+  "dataset": "ml_model/data/ER_dataset.csv",
+  "test_split": "80/20 Chronological Split (Train=7008, Held-Out Test=1752)",
+  "total_records_evaluated": 8760,
+  "models": {
+    "crowding_model": {
+      "type": "Supervised XGBoost Classifier",
+      "artifact": "supervised/final_xgb_classifier.pkl",
+      "target": "crowding_level",
+      "generalization_accuracy": 0.9669,
+      "weighted_f1": 0.97,
+      "status": "PASS",
+      "verdict": "READY"
+    },
+    "waiting_time_model": {
+      "type": "Supervised XGBoost Regressor",
+      "artifact": "supervised/final_xgb_regressor.pkl",
+      "target": "waiting_time_minutes",
+      "target_mean_offset": 43.35,
+      "generalization_mae": 3.82,
+      "generalization_rmse": 4.83,
+      "generalization_r2": 0.9788,
+      "within_5_min_pct": 70.49,
+      "within_10_min_pct": 95.83,
+      "status": "PASS",
+      "verdict": "READY"
+    },
+    "flow_pattern_model": {
+      "type": "Unsupervised K-Means + PCA",
+      "artifact": "unsupervised/kmeans_model.joblib",
+      "clusters": 3,
+      "silhouette_score": 0.2895,
+      "davies_bouldin_index": 1.1489,
+      "status": "PASS",
+      "verdict": "READY"
+    },
+    "high_demand_model": {
+      "type": "Unsupervised DBSCAN Anomaly",
+      "artifact": "unsupervised/dbscan_params.json",
+      "historical_surge_detection_pct": 95.0,
+      "controlled_scenario_pass_pct": 100.0,
+      "status": "PASS",
+      "verdict": "READY"
+    },
+    "patient_volume_model": {
+      "type": "Deep Learning 2-Layer LSTM",
+      "artifact": "deep_learning/er_patient_arrival_lstm.keras",
+      "horizon_mae": {
+        "1h": 8.07,
+        "3h": 21.39,
+        "6h": 45.42,
+        "24h": 58.25
+      },
+      "status": "WARNING",
+      "verdict": "READY WITH WARNINGS",
+      "notes": "Outperforms persistence baseline by 3.3x at 24h horizon."
+    }
+  }
+}

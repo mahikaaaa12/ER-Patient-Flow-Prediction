@@ -1,0 +1,40 @@
+{
+    "sequence_length": 168,
+    "feature_columns": [
+        "arrival_rate",
+        "arrival_lag_1",
+        "arrival_lag_3",
+        "arrival_lag_6",
+        "arrival_lag_12",
+        "arrival_lag_24",
+        "arrival_lag_168",
+        "arrival_rolling_mean_3h",
+        "arrival_rolling_mean_6h",
+        "arrival_rolling_mean_24h",
+        "arrival_rolling_std_24h",
+        "hour_sin",
+        "hour_cos",
+        "day_sin",
+        "day_cos",
+        "month_sin",
+        "month_cos"
+    ],
+    "target_columns": [
+        "target_1h",
+        "target_3h",
+        "target_6h",
+        "target_24h"
+    ],
+    "number_of_features": 17,
+    "number_of_outputs": 4,
+    "forecast_horizons": {
+        "1h": "next 1 hour cumulative arrivals",
+        "3h": "next 3 hours cumulative arrivals",
+        "6h": "next 6 hours cumulative arrivals",
+        "24h": "next 24 hours cumulative arrivals"
+    },
+    "model_type": "LSTM",
+    "loss": "MAE",
+    "optimizer": "Adam",
+    "learning_rate": 0.0005
+}

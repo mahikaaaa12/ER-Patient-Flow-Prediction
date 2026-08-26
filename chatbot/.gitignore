@@ -1,0 +1,49 @@
+# ==========================================
+# Python & Environment Artifacts
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ==========================================
+# Environment Variables & Secrets (CRITICAL)
+# ==========================================
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+*.env
+
+# ==========================================
+# Trained ML Model Binary Weights (Ignored)
+# ==========================================
+models/*.pkl
+models/*.joblib
+models/*.pt
+models/*.pth
+models/*.onnx
+models/*.h5
+models/*.bin
+models/*.safetensors
+*.pkl
+*.joblib
+*.pt
+*.onnx
+
+# ==========================================
+# Testing & IDEs
+# ==========================================
+.pytest_cache/
+.coverage
+htmlcov/
+.vscode/
+.idea/
+*.swp
