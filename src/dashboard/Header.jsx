@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell, Menu, PanelLeftOpen } from "lucide-react";
 import { NOTIFICATIONS, SYSTEM_STATUS } from "./mockData";
+import { erflowApi } from "../services/api";
+import { useMode } from "../context/ModeContext";
 
 function useClock() {
   const [now, setNow] = useState(() => new Date());
@@ -85,16 +87,58 @@ function NotificationsMenu() {
 }
 
 function SystemStatus() {
-  const ok = SYSTEM_STATUS.state === "operational";
+  const [status, setStatus] = useState({ ok: true, label: "Checking ML System...", loaded: false });
+  const { mode, toggleMode, isRealMode } = useMode();
+
+  useEffect(() => {
+    let mounted = true;
+    erflowApi
+      .checkHealth()
+      .then((data) => {
+        if (mounted) {
+          if (data.status === "healthy" && data.artifacts_loaded) {
+            setStatus({ ok: true, label: "All ML Systems Live", loaded: true });
+          } else {
+            setStatus({ ok: false, label: "ML Systems Degraded", loaded: true });
+          }
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setStatus({ ok: false, label: "FastAPI Backend Offline", loaded: true });
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
-    <span
-      className={`hidden items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-semibold sm:inline-flex ${
-        ok ? "bg-green-tint text-green" : "bg-amber-tint text-amber"
-      }`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full animate-soft-pulse ${ok ? "bg-green" : "bg-amber"}`} />
-      {SYSTEM_STATUS.label}
-    </span>
+    <div className="hidden sm:flex items-center gap-2">
+      <button
+        type="button"
+        onClick={toggleMode}
+        title="Click to toggle between REAL ML MODE and DEMO MODE"
+        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] font-bold uppercase tracking-wide transition-all shadow-sm focus:outline-none focus:ring-1 focus:ring-blue ${
+          isRealMode
+            ? "border border-green/30 bg-green-tint text-green hover:bg-green/10"
+            : "border border-amber/40 bg-amber-tint text-amber-dark hover:bg-amber/10"
+        }`}
+      >
+        <span className={`h-2 w-2 rounded-full ${isRealMode ? "bg-green animate-soft-pulse" : "bg-amber"}`} />
+        {isRealMode ? "⚡ REAL ML MODE" : "🧪 DEMO MODE"}
+      </button>
+
+      {isRealMode && (
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-medium ${
+            status.ok ? "bg-surface border border-border text-navy-soft" : "bg-amber-tint text-amber"
+          }`}
+        >
+          {status.label}
+        </span>
+      )}
+    </div>
   );
 }
 

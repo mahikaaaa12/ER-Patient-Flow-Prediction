@@ -8,5 +8,15 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     allowedHosts: true,
+    proxy: {
+      '/api/chat': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+      },
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
   },
 })
