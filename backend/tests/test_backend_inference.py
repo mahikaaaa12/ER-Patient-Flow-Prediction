@@ -176,7 +176,7 @@ class TestERFlowBackendInference(unittest.TestCase):
         self.assertIsInstance(sd["is_surge"], bool)
         self.assertIn("status", sd)
         self.assertIn(sd["severity"], ["Low", "Moderate", "High"])
-        self.assertEqual(sd["model_name"], "DBSCAN Anomaly Detector")
+        self.assertEqual(sd["model_name"], "Operational Surge Anomaly Detector")
 
     def test_08_unsupervised_individual_routes(self):
         # Flow patterns route

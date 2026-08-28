@@ -4,7 +4,9 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from datetime import datetime, timezone
 from .services.artifact_loader import artifact_loader
+from .services.monitoring_service import monitoring_service
 from .routers import (
     supervised_router,
     unsupervised_router,
@@ -41,16 +43,24 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration for local React / Vite frontend development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+import os
+
+# CORS configuration: configurable via ALLOWED_ORIGINS env var with safe local dev fallback
+raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+if raw_origins:
+    allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+else:
+    allowed_origins = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "*"
-    ],
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -92,6 +102,7 @@ async def health_check():
             "flow_pattern_model",
             "patient_volume_model"
         ],
+        "monitoring": monitoring_service.get_monitoring_report(),
         "models": {
             "supervised": {
                 "waiting_time_model": artifact_loader.xgb_regressor is not None,
@@ -118,6 +129,16 @@ async def health_check():
                 "config_loaded": len(artifact_loader.lstm_config) > 0,
             },
         },
+    }
+
+
+@app.get("/api/monitoring", tags=["System"])
+async def get_monitoring_report():
+    """Returns telemetry metrics, model health, input drift analysis, and system alerts."""
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "models": monitoring_service.get_monitoring_report(),
+        "alerts": monitoring_service.get_system_alerts(),
     }
 
 

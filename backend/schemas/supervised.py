@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
 from .hospital_state import HospitalState
 
@@ -9,6 +9,7 @@ class WaitingTimeResponse(BaseModel):
     predicted_peak: float = Field(description="Projected peak wait time during shift")
     trend: str = Field(description="Trend direction (Increasing, Stable, Decreasing)")
     model_name: str = Field(default="XGBoost Regressor")
+    explanation: Optional[Dict[str, Any]] = Field(default=None, description="TreeSHAP model explanation")
 
 
 class CrowdingRiskResponse(BaseModel):
@@ -17,6 +18,7 @@ class CrowdingRiskResponse(BaseModel):
     probabilities: Dict[str, float] = Field(description="Probability distribution across classes")
     model_name: str = Field(default="XGBoost Classifier")
     expected_window: Optional[str] = Field(default="Next 3 Hours")
+    explanation: Optional[Dict[str, Any]] = Field(default=None, description="TreeSHAP model explanation")
 
 
 class SupervisedPredictionResponse(BaseModel):

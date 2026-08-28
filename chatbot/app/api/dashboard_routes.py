@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from app.ml_service.model_registry import model_registry
+from app.ml_service.monitoring_service import monitoring_service
 from app.schemas.prediction_schema import PredictionInputData
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,7 @@ def get_overview_data(state_dict: Optional[Dict[str, Any]] = None) -> Dict[str, 
         "predicted_peak": float(wait_payload.get("predicted_peak", wt_min + 13.3)),
         "triage_level": triage,
         "model_name": "Supervised XGBoost Regressor",
+        "explanation": wait_payload.get("explanation"),
     }
 
     # 3. Crowding Risk (Supervised XGBoost Classifier)
@@ -102,6 +104,7 @@ def get_overview_data(state_dict: Optional[Dict[str, Any]] = None) -> Dict[str, 
         "crowding_score": int(crowd_payload.get("crowding_score", 25)),
         "expected_window": crowd_payload.get("expected_window", "Next 4 Hours"),
         "model_name": "Supervised XGBoost Classifier",
+        "explanation": crowd_payload.get("explanation"),
     }
 
     # 4. Flow Pattern (Unsupervised K-Means + PCA)
@@ -137,11 +140,11 @@ def get_overview_data(state_dict: Optional[Dict[str, Any]] = None) -> Dict[str, 
         "status": surge_payload.get("status", "ANOMALOUS SURGE DETECTED"),
         "is_surge": bool(surge_payload.get("is_high_demand_expected", True)),
         "severity": surge_payload.get("severity", "Moderate"),
-        "description": surge_payload.get("description", "Unusual high patient arrival rate detected by DBSCAN anomaly model."),
+        "description": surge_payload.get("description", "Unusual high patient arrival rate detected by Operational Surge Anomaly Detector."),
         "normal_arrival_rate": surge_payload.get("normal_arrival_rate", "13-22"),
         "current_arrival_rate": float(surge_payload.get("current_arrival_rate", arrival_rate)),
         "deviation_percent": surge_payload.get("deviation_percent", "+33.3% vs. baseline"),
-        "model_name": "Unsupervised DBSCAN Anomaly",
+        "model_name": "Operational Surge Anomaly Detector",
     }
 
     # Grounded AI Summary Text
@@ -294,16 +297,10 @@ async def detect_surge(state: Optional[Dict[str, Any]] = None):
     return resp.prediction
 
 
-@router.post("/ai-assistant/query", tags=["Assistant"])
-async def ai_assistant_query(req: Dict[str, Any]):
-    """AI Assistant Query Handler."""
-    ov = get_overview_data(req.get("hospital_state"))
+@router.get("/monitoring", tags=["System"])
+async def get_monitoring_report():
+    """Returns telemetry metrics, model health, input drift analysis, and system alerts."""
     return {
-        "text": ov["ai_summary_text"],
-        "insights": [
-            {"label": "3h Forecast", "value": str(ov["forecast"]["horizons"]["3h"]), "icon": "Users", "tone": "blue"},
-            {"label": "Wait Time", "value": f"{ov['waiting_time']['waiting_time_minutes']:.0f} min", "icon": "Timer", "tone": "amber"},
-            {"label": "Crowding", "value": ov["crowding_risk"]["crowding_level"], "icon": "AlertTriangle", "tone": "red"},
-            {"label": "Flow Pattern", "value": ov["flow_pattern"]["pattern_name"], "icon": "Activity", "tone": "teal"},
-        ],
+        "models": monitoring_service.get_monitoring_report(),
+        "alerts": monitoring_service.get_system_alerts(),
     }

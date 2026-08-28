@@ -57,6 +57,9 @@ class IntentDetector:
 
     # 6. WAITING TIME PATTERNS
     WAITING_TIME_PATTERNS = [
+        (r"why\s*is\s*(the\s*)?wait(ing)?([\s\-]*time)?\s*(so\s*)?(high|long|elevated)?", 0.95),
+        (r"what\s*factors\s*are\s*causing\s*(the\s*)?(long\s*wait|high\s*waiting\s*time)", 0.95),
+        (r"why\s*(are|is)\s*(the\s*)?queue\s*(so\s*)?long", 0.95),
         (r"wait(ing)?[\s\-]*(time|duration|estimate|minutes|risk|situation|period|level)", 0.95),
         (r"how\s*long\s*(will|do|are|is)\s*(patients|people|i)?\s*(have\s*to\s*)?(wait|waiting)", 0.95),
         (r"what\s*(will|is)\s*(the\s*)?(current|expected|estimated\s*)?wait(ing)?[\s\-]*time", 0.95),
@@ -73,6 +76,7 @@ class IntentDetector:
 
     # 7. PATIENT VOLUME PATTERNS
     PATIENT_VOLUME_PATTERNS = [
+        (r"is\s*demand\s*(increasing|growing|rising)", 0.95),
         (r"what\s*will\s*patient\s*arrivals\s*look\s*like", 0.95),
         (r"how\s*many\s*patients(\s*are)?\s*(expected|predicted)", 0.95),
         (r"expected\s*(patient|arrival|admission)\s*(count|volume|rate)", 0.94),
@@ -85,6 +89,7 @@ class IntentDetector:
 
     # 8. FLOW PATTERN PATTERNS
     FLOW_PATTERN_PATTERNS = [
+        (r"what\s*flow\s*pattern\s*are\s*we\s*seeing", 0.95),
         (r"what\s*patterns?\s*(are\s*)?(you\s*seeing|present|there|in)", 0.95),
         (r"what\s*patterns?\s*(do\s*you\s*see\s*in\s*)?patient\s*flow", 0.95),
         (r"are\s*there\s*(unusual|any)\s*patient[- ]flow\s*patterns?", 0.94),
@@ -99,8 +104,8 @@ class IntentDetector:
 
     # 9. HIGH DEMAND PERIOD PATTERNS
     HIGH_DEMAND_PATTERNS = [
+        (r"is\s*there\s*a\s*surge", 0.95),
         (r"when\s*(will|is)\s*(the\s*)?(er|ed|emergency\s*room|emergency\s*department)\s*(be\s*)?(busiest|peak)", 0.95),
-        (r"is\s*there\s*a\s*(demand\s*)?surge", 0.95),
         (r"are\s*we\s*experiencing\s*a\s*high[\s\-]demand", 0.95),
         (r"are\s*there\s*(any\s*)?surge\s*(periods?|hours?|times?)", 0.94),
         (r"busiest\s*(time|period|hours?|day)", 0.93),
@@ -112,6 +117,9 @@ class IntentDetector:
 
     # 10. CROWDING PATTERNS
     CROWDING_PATTERNS = [
+        (r"why\s*is\s*(the\s*)?crowding\s*(high|critical|severe|elevated)?", 0.95),
+        (r"what\s*factors\s*are\s*causing\s*(the\s*)?crowding", 0.95),
+        (r"why\s*is\s*(the\s*)?(er|ed|emergency\s*room)\s*(so\s*)?busy", 0.95),
         (r"will\s*the\s*(er|ed|emergency\s*room|emergency\s*department)\s*be\s*crowded", 0.95),
         (r"is\s*(the\s*)?(er|ed|emergency\s*room|emergency\s*department)\s*crowded", 0.95),
         (r"how\s*busy(\s*is\s*(the\s*)?(er|ed|emergency\s*room|emergency\s*department))?", 0.92),
@@ -125,6 +133,10 @@ class IntentDetector:
 
     # 11. GENERAL STATUS PATTERNS
     GENERAL_STATUS_PATTERNS = [
+        (r"how\s*is\s*(the\s*)?(er|ed|emergency\s*room)\s*(doing|operating)\s*(right\s*now)?", 0.95),
+        (r"give\s*me\s*a\s*summary\s*of\s*(the\s*)?(current\s*)?(er|ed)", 0.95),
+        (r"what\s*is\s*causing\s*(the\s*)?current\s*pressure", 0.95),
+        (r"how\s*busy\s*is\s*(the\s*)?(er|ed)", 0.93),
         (r"how\s*is\s*(the\s*)?(er|ed|emergency\s*room|emergency\s*department)\s*(expected\s*to\s*be|today|right\s*now|tonight|going)", 0.92),
         (r"(er|ed|emergency\s*room)\s*(general\s*)?status", 0.90),
         (r"general\s*status", 0.88),

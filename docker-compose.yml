@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # 1. FastAPI ML Inference Backend
+  ml-backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: erflow-ml-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - HOST=0.0.0.0
+      - PORT=8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # 2. FastAPI AI Assistant Chatbot Microservice
+  chatbot:
+    build:
+      context: .
+      dockerfile: chatbot/Dockerfile
+    container_name: erflow-chatbot
+    ports:
+      - "8001:8001"
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - HOST=0.0.0.0
+      - PORT=8001
+      - USE_MOCK_MODE=${USE_MOCK_MODE:-false}
+      - USE_MOCK_MODELS=${USE_MOCK_MODELS:-false}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # 3. React / Vite Dashboard Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: erflow_project/Dockerfile
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
+        - VITE_CHATBOT_API_URL=${VITE_CHATBOT_API_URL:-http://localhost:8001}
+    container_name: erflow-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      ml-backend:
+        condition: service_healthy
+      chatbot:
+        condition: service_healthy
+    restart: unless-stopped

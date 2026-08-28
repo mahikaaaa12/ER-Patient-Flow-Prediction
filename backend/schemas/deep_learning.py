@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field
 
 
@@ -23,3 +23,5 @@ class ArrivalForecastResponse(BaseModel):
     trend: str = Field(description="Increasing, Stable, Decreasing")
     series: List[TimeSeriesPoint] = Field(description="24-hour timeline projection")
     model_name: str = Field(default="LSTM Neural Network")
+    data_source: Optional[str] = Field(default="REAL HISTORICAL DATA (ER_dataset.csv)")
+    validation_metrics: Optional[Dict[str, Any]] = Field(default=None)

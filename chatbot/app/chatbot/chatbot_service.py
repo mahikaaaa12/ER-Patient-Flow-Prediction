@@ -67,24 +67,32 @@ class ChatbotService:
         except ValueError:
             intent_enum = Intent.UNKNOWN
 
-        # 4. Check active session context for follow-up condition refinement (e.g., "What about evening?")
+        # 4. Check active session context for follow-up condition refinement & memory
         active_context = self.conv_mgr.get_prediction_context(session_id)
-        if (intent_enum == Intent.UNKNOWN or confidence < 0.80) and active_context and active_context.get("intent"):
-            last_intent_str = active_context["intent"]
-            lower_msg = clean_text.lower()
-            follow_up_keywords = ["evening", "morning", "afternoon", "tonight", "night", "tomorrow", "today", "urgent", "standard", "critical", "what about"]
+        lower_msg = clean_text.lower()
+        req_context = dict(request.context or {})
 
-            if any(kw in lower_msg for kw in follow_up_keywords):
+        # Conversational memory for short follow-up questions like "Why?", "What about later?", "Why is that?"
+        if active_context and active_context.get("intent"):
+            last_intent_str = active_context["intent"]
+            is_why_followup = any(kw in lower_msg for kw in ["why", "factor", "cause", "reason", "explain"])
+            is_later_followup = any(kw in lower_msg for kw in ["later", "peak", "future", "forecast", "ahead"])
+            is_condition_followup = any(kw in lower_msg for kw in ["evening", "morning", "afternoon", "tonight", "night", "tomorrow", "today", "what about"])
+
+            if (intent_enum == Intent.UNKNOWN or confidence < 0.85) and (is_why_followup or is_later_followup or is_condition_followup):
                 try:
                     intent_enum = Intent(last_intent_str)
-                    confidence = 0.85
-                    logger.info(f"Session {session_id} - Inherited intent '{intent_enum.value}' from active prediction context for follow-up query.")
+                    confidence = 0.90
+                    logger.info(f"Session {session_id} - Inherited intent '{intent_enum.value}' from active session context for follow-up query.")
                 except ValueError:
                     pass
 
-                req_context = dict(request.context or {})
-                features = dict(req_context.get("features", {}))
+                if is_why_followup:
+                    req_context["query_type"] = "explanation"
+                elif is_later_followup:
+                    req_context["query_type"] = "future"
 
+                features = dict(req_context.get("features", {}))
                 if "evening" in lower_msg:
                     req_context["time_window"] = "evening"
                     features["hour_of_day"] = 18
@@ -97,8 +105,6 @@ class ChatbotService:
                 elif "night" in lower_msg or "tonight" in lower_msg:
                     req_context["time_window"] = "night"
                     features["hour_of_day"] = 22
-                elif "tomorrow" in lower_msg:
-                    req_context["time_window"] = "tomorrow"
 
                 req_context["features"] = features
                 request.context = req_context

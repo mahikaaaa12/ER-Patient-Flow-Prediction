@@ -1,5 +1,14 @@
 node_modules/
+dist/
+build/
 __pycache__/
 .pytest_cache/
-dist/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
 scratch/
+.env
+.env.*
+!.env.example

@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env.local
+.vscode
+.idea
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+node_modules
+erflow_project/node_modules
+erflow_project/dist
+*.log
+scratch

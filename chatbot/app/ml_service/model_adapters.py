@@ -10,7 +10,9 @@ Pipeline: Input Mapping → Preprocessing → Model Inference → Output Normali
 from abc import ABC, abstractmethod
 import json
 import logging
+import math
 import os
+from datetime import datetime
 from pathlib import Path
 import tempfile
 import zipfile
@@ -28,12 +30,53 @@ from app.ml_service.ml_interface import (
     WaitingTimePredictor,
 )
 from app.ml_service.model_registry import model_registry
+from app.ml_service.monitoring_service import monitoring_service
+from app.ml_service.xai_explainer import explain_prediction, get_feature_names_from_preprocessor
 from app.schemas.prediction_schema import (
     PredictionInputData,
     PredictionResponse,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def build_lstm_feature_row(
+    arrival_rate: float,
+    recent_arrivals: List[float],
+    hour: int,
+    day_of_week: int,
+    month: int
+) -> List[float]:
+    n = len(recent_arrivals)
+    lag_1 = recent_arrivals[-1] if n >= 1 else arrival_rate
+    lag_3 = recent_arrivals[-3] if n >= 3 else lag_1
+    lag_6 = recent_arrivals[-6] if n >= 6 else lag_3
+    lag_12 = recent_arrivals[-12] if n >= 12 else lag_6
+    lag_24 = recent_arrivals[-24] if n >= 24 else lag_12
+    lag_168 = recent_arrivals[-168] if n >= 168 else lag_24
+
+    arr_3 = recent_arrivals[-3:] if n >= 3 else [arrival_rate]
+    arr_6 = recent_arrivals[-6:] if n >= 6 else arr_3
+    arr_24 = recent_arrivals[-24:] if n >= 24 else arr_6
+
+    rolling_mean_3h = float(np.mean(arr_3))
+    rolling_mean_6h = float(np.mean(arr_6))
+    rolling_mean_24h = float(np.mean(arr_24))
+    rolling_std_24h = float(np.std(arr_24)) if len(arr_24) > 1 else 0.0
+
+    hour_sin = math.sin(2.0 * math.pi * hour / 24.0)
+    hour_cos = math.cos(2.0 * math.pi * hour / 24.0)
+    day_sin = math.sin(2.0 * math.pi * day_of_week / 7.0)
+    day_cos = math.cos(2.0 * math.pi * day_of_week / 7.0)
+    month_sin = math.sin(2.0 * math.pi * month / 12.0)
+    month_cos = math.cos(2.0 * math.pi * month / 12.0)
+
+    return [
+        arrival_rate,
+        lag_1, lag_3, lag_6, lag_12, lag_24, lag_168,
+        rolling_mean_3h, rolling_mean_6h, rolling_mean_24h, rolling_std_24h,
+        hour_sin, hour_cos, day_sin, day_cos, month_sin, month_cos
+    ]
 
 
 # ==========================================================
@@ -140,7 +183,9 @@ class BaseModelAdapter(ABC):
         pass
 
     def execute_prediction(self, input_data: PredictionInputData) -> PredictionResponse:
+        key = getattr(self, "model_key", self.model_name)
         if not self.is_loaded():
+            monitoring_service.set_model_offline(key, self.load_error or "Artifact not loaded")
             return PredictionResponse(
                 is_available=False,
                 model_name=self.model_name,
@@ -148,16 +193,26 @@ class BaseModelAdapter(ABC):
                 error_message=self.load_error or f"Model artifact for '{self.model_name}' is not loaded.",
             )
 
+        t0 = monitoring_service.record_inference_start(key)
         try:
             model_inputs = self.map_inputs(input_data)
             raw_output = self.raw_predict(model_inputs)
 
             if self.postprocessor:
-                return self.postprocessor(raw_output, input_data)
+                response = self.postprocessor(raw_output, input_data)
+            else:
+                response = self.map_outputs(raw_output, input_data)
 
-            return self.map_outputs(raw_output, input_data)
+            monitoring_service.record_inference_success(
+                model_key=key,
+                start_time=t0,
+                prediction=response.prediction,
+                input_features=input_data.features,
+            )
+            return response
         except Exception as e:
             logger.error(f"Inference error in adapter '{self.model_name}': {e}", exc_info=True)
+            monitoring_service.record_inference_error(key, str(e))
             return PredictionResponse(
                 is_available=False,
                 model_name=self.model_name,
@@ -303,6 +358,18 @@ class WaitingTimeModelAdapter(BaseModelAdapter, WaitingTimePredictor):
                 "triage_level": str(triage),
             }
 
+        # TreeSHAP feature explanation
+        explanation = None
+        if hasattr(self.model_artifact, "get_booster") and self.preprocessor_pipeline is not None:
+            try:
+                mapped = self.map_inputs(input_data)
+                feature_names = get_feature_names_from_preprocessor(self.preprocessor_pipeline)
+                explanation = explain_prediction(self.model_artifact, mapped, feature_names, top_k=4)
+                if isinstance(prediction_dict, dict):
+                    prediction_dict["explanation"] = explanation
+            except Exception as e:
+                logger.warning(f"Explanation computation failed in WaitingTimeModelAdapter: {e}")
+
         return PredictionResponse(
             prediction=prediction_dict,
             confidence=None,
@@ -313,6 +380,7 @@ class WaitingTimeModelAdapter(BaseModelAdapter, WaitingTimePredictor):
                 "adapter": self.__class__.__name__,
                 "target_uncentered": True,
                 "target_mean_offset": TARGET_MEAN_OFFSET,
+                "explanation": explanation,
             },
         )
 
@@ -487,13 +555,24 @@ class CrowdingModelAdapter(BaseModelAdapter, CrowdingPredictor):
         if conf is not None:
             pred_dict["class_probability"] = round(conf, 4)
 
+        # TreeSHAP feature explanation
+        explanation = None
+        if hasattr(self.model_artifact, "get_booster") and self.preprocessor_pipeline is not None:
+            try:
+                mapped = self.map_inputs(input_data)
+                feature_names = get_feature_names_from_preprocessor(self.preprocessor_pipeline)
+                explanation = explain_prediction(self.model_artifact, mapped, feature_names, top_k=4, class_idx=int(class_idx) if isinstance(class_idx, (int, np.integer)) else 0)
+                pred_dict["explanation"] = explanation
+            except Exception as e:
+                logger.warning(f"Explanation computation failed in CrowdingModelAdapter: {e}")
+
         return PredictionResponse(
             prediction=pred_dict,
             confidence=round(conf, 4) if conf is not None else None,
             model_name=self.model_name,
             model_version=self.model_version,
             is_available=True,
-            metadata={"adapter": self.__class__.__name__, "is_probability": True if conf is not None else False},
+            metadata={"adapter": self.__class__.__name__, "is_probability": True if conf is not None else False, "explanation": explanation},
         )
 
 
@@ -501,11 +580,11 @@ SupervisedCrowdingAdapter = CrowdingModelAdapter
 
 
 # ==========================================================
-# 4. Unsupervised High Demand Adapter (DBSCAN Anomaly)
+# 4. Unsupervised High Demand Adapter (Operational Surge Anomaly)
 # ==========================================================
 
 class HighDemandModelAdapter(BaseModelAdapter, HighDemandPredictor):
-    """Adapter for Unsupervised DBSCAN density anomaly surge detection."""
+    """Adapter for Operational Surge & Anomaly Detection (K-Means Centroid Distance + Parametric Z-Score Rules)."""
 
     def __init__(
         self,
@@ -524,7 +603,7 @@ class HighDemandModelAdapter(BaseModelAdapter, HighDemandPredictor):
             preprocessor=preprocessor,
             postprocessor=postprocessor,
         )
-        self.model_type = "Unsupervised DBSCAN Surge Anomaly"
+        self.model_type = "Operational Surge Anomaly Detector"
         self.scaler = None
         self.params = {}
         if self.model_artifact is None and model_dir:
@@ -832,39 +911,19 @@ class PatientVolumeModelAdapter(BaseModelAdapter, PatientVolumePredictor):
         if not seq_history or len(seq_history) < 168:
             base_rate = arr_val
             seq_history = [
-                max(2.0, round(base_rate * (0.6 + 0.5 * np.sin(((i % 24) - 6) * np.pi / 12))))
+                max(2.0, round(base_rate * (0.6 + 0.5 * math.sin(((i % 24) - 6) * math.pi / 12.0))))
                 for i in range(168)
             ]
 
         rows = []
         for i in range(168):
             val = float(seq_history[i])
-            l1 = float(seq_history[i - 1]) if i >= 1 else val
-            l2 = float(seq_history[i - 2]) if i >= 2 else val
-            l3 = float(seq_history[i - 3]) if i >= 3 else val
-            l24 = float(seq_history[i - 24]) if i >= 24 else val
-            l168 = val
-
-            window_3h = seq_history[max(0, i - 2):i + 1]
-            rm3 = float(np.mean(window_3h))
-            rs3 = float(np.std(window_3h)) if len(window_3h) > 1 else 0.0
-
-            window_6h = seq_history[max(0, i - 5):i + 1]
-            rm6 = float(np.mean(window_6h))
-            rs6 = float(np.std(window_6h)) if len(window_6h) > 1 else 0.0
-
-            window_24h = seq_history[max(0, i - 23):i + 1]
-            rm24 = float(np.mean(window_24h))
-            rs24 = float(np.std(window_24h)) if len(window_24h) > 1 else 0.0
-
+            prev = [float(x) for x in seq_history[:i]]
             hr = i % 24
             day = (i // 24) % 7
-            sin_hr = np.sin(2 * np.pi * hr / 24.0)
-            cos_hr = np.cos(2 * np.pi * hr / 24.0)
-            sin_day = np.sin(2 * np.pi * day / 7.0)
-            cos_day = np.cos(2 * np.pi * day / 7.0)
-
-            rows.append([val, l1, l2, l3, l24, l168, rm3, rs3, rm6, rs6, rm24, rs24, sin_hr, cos_hr, sin_day, cos_day, 0.0])
+            month = int(f.get("month", 7))
+            feat_vec = build_lstm_feature_row(val, prev, hr, day, month)
+            rows.append(feat_vec)
 
         features_168 = np.array(rows, dtype=np.float32)
         if self.feature_scaler is not None and hasattr(self.feature_scaler, "transform"):

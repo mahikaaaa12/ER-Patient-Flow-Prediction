@@ -1,0 +1,126 @@
+name: ERFlow Continuous Integration
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # ==========================================================
+  # Job 1: Frontend CI (React / Vite Build & Lint)
+  # ==========================================================
+  frontend-ci:
+    name: Frontend CI (React/Vite)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: erflow_project/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd erflow_project
+          npm ci
+
+      - name: Run Linter
+        run: |
+          cd erflow_project
+          npm run lint
+
+      - name: Run Production Build
+        run: |
+          cd erflow_project
+          npm run build
+        env:
+          VITE_API_BASE_URL: "http://localhost:8000"
+          VITE_CHATBOT_API_URL: "http://localhost:8001"
+
+  # ==========================================================
+  # Job 2: Backend CI (FastAPI Inference Engine & Pytest)
+  # ==========================================================
+  backend-ci:
+    name: Backend CI (FastAPI ML Backend)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run Backend Unit & API Tests
+        run: |
+          PYTHONPATH=. python -m pytest -v backend/tests
+
+  # ==========================================================
+  # Job 3: Chatbot Microservice CI (FastAPI Assistant & Pytest)
+  # ==========================================================
+  chatbot-ci:
+    name: Chatbot Microservice CI (AI Assistant)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: chatbot/requirements.txt
+
+      - name: Install Chatbot Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r chatbot/requirements.txt
+
+      - name: Run Chatbot Unit & API Tests
+        run: |
+          PYTHONPATH=. python -m pytest -v chatbot/tests
+
+  # ==========================================================
+  # Job 4: ML Artifact & Adapter Validation CI
+  # ==========================================================
+  ml-validation-ci:
+    name: ML Model Validation (Artifact Loading & Response Integrity)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install ML Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install -r chatbot/requirements.txt
+
+      - name: Verify Model Artifact Loading & Non-NaN Responses
+        run: |
+          PYTHONPATH=. python -m pytest -v backend/tests/test_backend_inference.py backend/tests/test_lstm_forecasting.py chatbot/tests/test_model_monitoring.py

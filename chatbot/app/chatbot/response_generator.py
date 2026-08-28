@@ -101,7 +101,7 @@ class ResponseGenerator:
         if intent_enum == Intent.MODEL_INFO:
             return (
                 "🤖 **Model Information**: The system utilizes predictive machine learning models (XGBoost Regressor & Classifier, "
-                "DBSCAN Density Anomaly, K-Means + PCA Clustering, and 2-Layer LSTM Neural Network) trained on historical ER "
+                "Operational Surge & Anomaly Detector, K-Means + PCA Clustering, and 2-Layer LSTM Neural Network) trained on historical ER "
                 "admission records, seasonal trends, day-of-week patterns, and triage acuity data."
             )
 
@@ -143,16 +143,49 @@ class ResponseGenerator:
         # B. WAITING TIME PREDICTION
         elif intent_enum == Intent.WAITING_TIME:
             wait_min = payload.get("estimated_wait_minutes")
+            peak_min = payload.get("predicted_peak")
             triage = payload.get("triage_level", "Standard")
+            explanation = payload.get("explanation") or (prediction_result.metadata.get("explanation") if prediction_result else None)
+
+            query_type = (context or {}).get("query_type")
+            if query_type == "explanation":
+                if explanation and isinstance(explanation, dict) and "top_factors" in explanation and len(explanation["top_factors"]) > 0:
+                    factors = [f["feature"] for f in explanation["top_factors"][:3]]
+                    return f"The strongest factors contributing to the waiting-time prediction are {', '.join(factors[:2])}, and {factors[2]}." if len(factors) >= 3 else f"The strongest factors contributing to the prediction are {', '.join(factors)}."
+                return "The primary factors driving expected waiting time include patient queue size, arrival rate velocity, and bed availability."
+
+            if query_type == "future":
+                if peak_min:
+                    return f"Forecasted waiting time is expected to reach approximately **{peak_min} minutes** during peak hours."
+                return f"Waiting times are forecasted to remain elevated over the next 1 to 3 hours."
+
+            explanation_str = ""
+            if explanation and isinstance(explanation, dict) and "top_factors" in explanation and len(explanation["top_factors"]) > 0:
+                factors = [f["feature"] for f in explanation["top_factors"][:3]]
+                explanation_str = f" The strongest contributing factors are {', '.join(factors[:2])}, and {factors[2]}." if len(factors) >= 3 else f" The strongest contributing factors are {', '.join(factors)}."
+
             if wait_min is not None:
-                return f"The waiting-time model estimates approximately **{wait_min} minutes** for **{triage}** triage{conf_str}."
+                return f"The waiting-time model estimates approximately **{wait_min} minutes** for **{triage}** triage{conf_str}.{explanation_str}"
             return self.UNAVAILABLE_MESSAGE
 
         # C. CROWDING PREDICTION
         elif intent_enum == Intent.CROWDING:
             level = payload.get("crowding_level")
+            explanation = payload.get("explanation") or (prediction_result.metadata.get("explanation") if prediction_result else None)
+            query_type = (context or {}).get("query_type")
+
+            if query_type == "explanation":
+                if explanation and isinstance(explanation, dict) and "top_factors" in explanation and len(explanation["top_factors"]) > 0:
+                    factors = [f["feature"] for f in explanation["top_factors"][:3]]
+                    return f"The primary drivers behind the crowding risk prediction are {', '.join(factors[:2])}, and {factors[2]}." if len(factors) >= 3 else f"The primary drivers behind the prediction are {', '.join(factors)}."
+                return "The primary drivers of crowding risk are high occupancy percent and elevated triage queue volume."
+
+            explanation_str = ""
+            if explanation and isinstance(explanation, dict) and "top_factors" in explanation and len(explanation["top_factors"]) > 0:
+                factors = [f["feature"] for f in explanation["top_factors"][:3]]
+                explanation_str = f" The primary drivers behind this prediction are {', '.join(factors[:2])}, and {factors[2]}." if len(factors) >= 3 else f" The primary drivers behind this prediction are {', '.join(factors)}."
             if level is not None:
-                return f"The crowding model predicts **{level}** risk{conf_str}."
+                return f"The crowding model predicts **{level}** risk{conf_str}.{explanation_str}"
             return self.UNAVAILABLE_MESSAGE
 
         # D. HIGH DEMAND PERIOD PREDICTION
@@ -177,25 +210,37 @@ class ResponseGenerator:
 
         # F. GENERAL ER STATUS PREDICTION
         elif intent_enum == Intent.GENERAL_STATUS:
-            lines = ["📋 **Grounded Patient Flow Summary**:"]
+            lines = ["📋 **Operational ER Status Summary**:"]
             has_data = False
 
-            if "volume" in payload and isinstance(payload["volume"], dict):
-                v_val = payload["volume"].get("predicted_volume")
-                if v_val is not None:
-                    lines.append(f"- **Patient Volume**: {v_val} arrivals forecasted")
-                    has_data = True
-
             if "waiting_time" in payload and isinstance(payload["waiting_time"], dict):
-                w_val = payload["waiting_time"].get("estimated_wait_minutes")
+                w_val = payload["waiting_time"].get("estimated_wait_minutes", payload["waiting_time"].get("waiting_time_minutes"))
                 if w_val is not None:
-                    lines.append(f"- **Waiting Time**: {w_val} minutes estimated")
+                    lines.append(f"- **Waiting Time**: {w_val:.0f} minutes expected average")
                     has_data = True
 
             if "crowding" in payload and isinstance(payload["crowding"], dict):
                 c_val = payload["crowding"].get("crowding_level")
                 if c_val is not None:
                     lines.append(f"- **Crowding Risk**: {c_val}")
+                    has_data = True
+
+            if "volume" in payload and isinstance(payload["volume"], dict):
+                v_val = payload["volume"].get("predicted_volume")
+                if v_val is not None:
+                    lines.append(f"- **Patient Demand**: {v_val} forecasted arrivals (next 3h)")
+                    has_data = True
+
+            if "flow_pattern" in payload and isinstance(payload["flow_pattern"], dict):
+                p_val = payload["flow_pattern"].get("pattern_name")
+                if p_val is not None:
+                    lines.append(f"- **Flow Pattern**: {p_val}")
+                    has_data = True
+
+            if "surge_detection" in payload and isinstance(payload["surge_detection"], dict):
+                s_val = payload["surge_detection"].get("status")
+                if s_val is not None:
+                    lines.append(f"- **Surge Detector**: {s_val}")
                     has_data = True
 
             if has_data:

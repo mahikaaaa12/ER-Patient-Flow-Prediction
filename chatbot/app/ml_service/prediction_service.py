@@ -201,9 +201,10 @@ class PredictionService:
                 vol_res = self.predict_patient_volume(input_data)
                 wait_res = self.predict_waiting_time(input_data)
                 crowd_res = self.predict_crowding(input_data)
+                flow_res = self.predict_flow_pattern(input_data)
                 surge_res = self.predict_high_demand_period(input_data)
 
-                if any([vol_res.is_available, wait_res.is_available, crowd_res.is_available, surge_res.is_available]):
+                if any([vol_res.is_available, wait_res.is_available, crowd_res.is_available, flow_res.is_available, surge_res.is_available]):
                     summary_payload = {}
                     if vol_res.is_available and vol_res.prediction:
                         summary_payload["volume"] = vol_res.prediction
@@ -211,8 +212,10 @@ class PredictionService:
                         summary_payload["waiting_time"] = wait_res.prediction
                     if crowd_res.is_available and crowd_res.prediction:
                         summary_payload["crowding"] = crowd_res.prediction
+                    if flow_res.is_available and flow_res.prediction:
+                        summary_payload["flow_pattern"] = flow_res.prediction
                     if surge_res.is_available and surge_res.prediction:
-                        summary_payload["surge"] = surge_res.prediction
+                        summary_payload["surge_detection"] = surge_res.prediction
 
                     response = PredictionResponse(
                         prediction=summary_payload,

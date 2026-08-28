@@ -26,7 +26,7 @@ class SurgeDetectionResponse(BaseModel):
     deviation_percent: str
     detected_at: str
     description: str
-    model_name: str = Field(default="DBSCAN Anomaly Detector")
+    model_name: str = Field(default="Operational Surge Anomaly Detector")
 
 
 class UnsupervisedPredictionResponse(BaseModel):
