@@ -10,5 +10,6 @@ venv/
 .venv/
 scratch/
 .env
+.env.local
 .env.*
 !.env.example
