@@ -10,3 +10,4 @@ pandas>=2.2.0
 scikit-learn==1.6.1
 xgboost>=2.0.0,<3.0.0
 joblib>=1.4.0
+h5py>=3.10.0
