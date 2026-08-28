@@ -43,24 +43,41 @@ app = FastAPI(
 
 import os
 
-# CORS configuration: configurable via ALLOWED_ORIGINS env var with safe local dev fallback
-raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+# Flexible, environment-driven CORS configuration
+raw_origins = (
+    os.getenv("ALLOWED_ORIGINS") or 
+    os.getenv("CORS_ORIGINS") or 
+    os.getenv("FRONTEND_URL") or 
+    ""
+)
+
+default_local_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+]
+
 if raw_origins:
-    allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+    env_origins = [o.strip().rstrip("/") for o in raw_origins.split(",") if o.strip()]
+    if "*" in env_origins:
+        allowed_origins = ["*"]
+        allow_credentials = False
+    else:
+        # Merge configured production frontend URLs with local dev fallback
+        allowed_origins = list(dict.fromkeys(env_origins + default_local_origins))
+        allow_credentials = True
 else:
-    allowed_origins = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "*"
-    ]
+    allowed_origins = default_local_origins + ["*"]
+    allow_credentials = False
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origin_regex=r"https://.*\.onrender\.com",
+    allow_credentials=allow_credentials,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
 
