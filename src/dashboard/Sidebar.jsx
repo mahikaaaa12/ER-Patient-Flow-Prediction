@@ -7,9 +7,11 @@ import {
   LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
+  Server,
   TrendingUp,
   Waves,
   X,
+  Zap,
 } from "lucide-react";
 
 export const NAV_ITEMS = [
@@ -19,6 +21,8 @@ export const NAV_ITEMS = [
   { to: "/dashboard/crowding-risk", label: "Crowding Risk", icon: AlertTriangle },
   { to: "/dashboard/flow-patterns", label: "Flow Patterns", icon: Activity },
   { to: "/dashboard/surge-detection", label: "Surge Detection", icon: Waves },
+  { to: "/dashboard/scenario-simulator", label: "Scenario Simulator", icon: Zap },
+  { to: "/dashboard/monitoring", label: "Model Monitoring", icon: Server },
   { to: "/dashboard/ai-assistant", label: "AI Assistant", icon: Bot },
 ];
 

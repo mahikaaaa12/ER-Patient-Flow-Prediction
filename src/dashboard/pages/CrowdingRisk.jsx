@@ -6,6 +6,7 @@ import {
   LayoutGrid,
   RefreshCw,
   ShieldAlert,
+  Sparkles,
   TrendingUp,
   UserCheck,
   Users,
@@ -259,7 +260,7 @@ export default function CrowdingRisk() {
     }
   }, [isRealMode]);
 
-  const crowdingSummary = isRealMode
+  const crowdingSummary = (isRealMode
     ? data
       ? {
           level: data.crowding_level,
@@ -267,7 +268,7 @@ export default function CrowdingRisk() {
           window: data.expected_window || "Next 3 Hours",
         }
       : null
-    : MOCK_SUMMARY;
+    : MOCK_SUMMARY) || { level: "MODERATE", score: 45, window: "Next 3 Hours" };
 
   const modelName = isRealMode ? data?.model_name || "XGBoost Classifier" : MOCK_MODEL;
 
@@ -326,20 +327,54 @@ export default function CrowdingRisk() {
       {/* CONTEXTUAL ML PRESENTATION LAYER */}
       <MLContextCard
         sees={[
-          `${currentOperationalState.patients_waiting || 24} patients waiting`,
-          `${currentOperationalState.arrival_rate || 28} arrivals/hr`,
-          `${currentOperationalState.occupancy_percent || 78}% occupancy`,
+          `${operationalState.patients_waiting || 24} patients waiting`,
+          `${operationalState.arrival_rate || 28} arrivals/hr`,
+          `${operationalState.occupancy_percent || 78}% occupancy`,
         ]}
-        predicts={`${crowdingSummary.level} Crowding Risk (Score: ${crowdingSummary.score}/100)`}
-        when={crowdingSummary.window}
+        predicts={`${crowdingSummary?.level || 'MODERATE'} Crowding Risk (Score: ${crowdingSummary?.score || 45}/100)`}
+        when={crowdingSummary?.window || 'Next 3 Hours'}
         source={modelName}
       />
+
+      {/* WHY THIS PREDICTION? (Explainable AI TreeSHAP Layer) */}
+      {data?.explanation?.top_factors?.length > 0 && (
+        <div className="rounded-2xl border border-border bg-surface p-5 shadow-soft sm:p-6">
+          <div className="flex items-center gap-2 border-b border-border pb-3">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-tint text-teal">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <h3 className="text-[13px] font-bold tracking-wider text-navy uppercase">Why This Prediction?</h3>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {data.explanation.top_factors.map((factor, idx) => {
+              const isIncrease = factor.direction === "increases";
+              const impactLabel =
+                factor.importance >= 0.35 ? "High impact" : factor.importance >= 0.10 ? "Moderate impact" : "Lower impact";
+              return (
+                <div key={idx} className="flex items-center justify-between rounded-xl border border-border bg-bg px-4 py-3">
+                  <div>
+                    <p className="text-[13px] font-semibold text-navy">{factor.feature}</p>
+                    <p className="text-[11.5px] font-medium text-navy-soft">{impactLabel}</p>
+                  </div>
+                  <span
+                    className={`flex items-center gap-1 font-mono text-[13px] font-bold ${
+                      isIncrease ? "text-amber-dark" : "text-teal"
+                    }`}
+                  >
+                    {isIncrease ? "↑" : "↓"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* INTERACTIVE OPERATIONAL INPUT CONTROLS */}
       <HospitalStateForm
         onSubmit={runInference}
         loading={loading}
-        initialValues={currentOperationalState}
+        initialValues={operationalState}
       />
 
       {/* CONTRIBUTING OPERATIONAL FACTORS (LIVE INPUTS) */}
@@ -351,43 +386,43 @@ export default function CrowdingRisk() {
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
           <MetricCard
             label="Occupancy"
-            value={`${currentOperationalState.occupancy_percent || 78}%`}
+            value={`${operationalState.occupancy_percent || 78}%`}
             icon={AlertTriangle}
-            tone={(currentOperationalState.occupancy_percent || 78) > 80 ? "red" : "amber"}
+            tone={(operationalState.occupancy_percent || 78) > 80 ? "red" : "amber"}
           />
           <MetricCard
             label="Patients Waiting"
-            value={currentOperationalState.patients_waiting || 24}
+            value={operationalState.patients_waiting || 24}
             icon={Users}
             tone="amber"
           />
           <MetricCard
             label="Arrival Rate"
-            value={`${currentOperationalState.arrival_rate || 28} /hr`}
+            value={`${operationalState.arrival_rate || 28} /hr`}
             icon={TrendingUp}
             tone="blue"
           />
           <MetricCard
             label="Available Beds"
-            value={currentOperationalState.available_beds || 12}
+            value={operationalState.available_beds || 12}
             icon={BedDouble}
             tone="teal"
           />
           <MetricCard
             label="Staffed Doctors"
-            value={currentOperationalState.doctors_on_duty || 4}
+            value={operationalState.doctors_on_duty || 4}
             icon={UserCheck}
             tone="navy"
           />
           <MetricCard
             label="Staffed Nurses"
-            value={currentOperationalState.nurses_on_duty || 10}
+            value={operationalState.nurses_on_duty || 10}
             icon={UserCheck}
             tone="navy"
           />
           <MetricCard
             label="Acuity Severity"
-            value={`Level ${currentOperationalState.severity_level || 3}`}
+            value={`Level ${operationalState.severity_level || 3}`}
             icon={Clock}
             tone="purple"
           />

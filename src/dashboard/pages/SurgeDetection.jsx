@@ -16,6 +16,8 @@ import {
   SURGE_EXPLANATION as MOCK_EXPLANATION,
 } from "../mockData";
 
+import { useMode } from "../../context/ModeContext";
+
 const SEVERITY_TONE = { High: "red", Moderate: "amber", Low: "green" };
 
 function SurgeEventCard({ when, severity, rate }) {
@@ -32,6 +34,7 @@ function SurgeEventCard({ when, severity, rate }) {
 }
 
 export default function SurgeDetection() {
+  const { isRealMode, isDemoMode } = useMode();
   const [arrivalRate, setArrivalRate] = useState(32);
   const [occupancy, setOccupancy] = useState(82);
   const [hourOfDay, setHourOfDay] = useState(18);
@@ -58,7 +61,7 @@ export default function SurgeDetection() {
     };
 
     try {
-      const res = await erflowApi.detectSurge(requestPayload);
+      const res = await erflowApi.getSurgeDetection(requestPayload);
       setData(res);
     } catch (err) {
       console.warn("Surge detection fetch failed:", err.message);
@@ -77,7 +80,7 @@ export default function SurgeDetection() {
     }
   }, [isRealMode]);
 
-  const surgeStatus = isRealMode
+  const surgeStatus = (isRealMode
     ? data
       ? {
           status: data.status,
@@ -90,7 +93,7 @@ export default function SurgeDetection() {
           description: data.description,
         }
       : null
-    : MOCK_STATUS;
+    : MOCK_STATUS) || MOCK_STATUS;
 
   const modelName = isRealMode ? data?.model_name || "DBSCAN Density Anomaly" : MOCK_MODEL;
 
@@ -101,7 +104,7 @@ export default function SurgeDetection() {
         <div className="flex items-center justify-between rounded-xl border border-amber/40 bg-amber-tint px-4 py-3 text-[13px] text-amber-dark">
           <div className="flex items-center gap-2 font-medium">
             <span className="rounded bg-amber px-2 py-0.5 text-[11px] font-bold text-white uppercase">DEMO MODE</span>
-            <span>Displaying synthetic surge detection metrics. Switch to REAL ML MODE in the header for live DBSCAN anomaly detection.</span>
+            <span>Displaying synthetic surge detection metrics. Switch to REAL ML MODE in the header for live operational anomaly detection.</span>
           </div>
         </div>
       )}

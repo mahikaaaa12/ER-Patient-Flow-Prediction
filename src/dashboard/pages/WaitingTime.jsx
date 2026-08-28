@@ -9,6 +9,7 @@ import {
   LogOut,
   Percent,
   RefreshCw,
+  Sparkles,
   Stethoscope,
   TrendingUp,
   Users,
@@ -367,6 +368,40 @@ export default function WaitingTime() {
         when="Next 1 to 3 Hours"
         source={waitingStatus.model}
       />
+
+      {/* WHY THIS PREDICTION? (Explainable AI TreeSHAP Layer) */}
+      {data?.explanation?.top_factors?.length > 0 && (
+        <div className="rounded-2xl border border-border bg-surface p-5 shadow-soft sm:p-6">
+          <div className="flex items-center gap-2 border-b border-border pb-3">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-tint text-teal">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <h3 className="text-[13px] font-bold tracking-wider text-navy uppercase">Why This Prediction?</h3>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {data.explanation.top_factors.map((factor, idx) => {
+              const isIncrease = factor.direction === "increases";
+              const impactLabel =
+                factor.importance >= 0.35 ? "High impact" : factor.importance >= 0.10 ? "Moderate impact" : "Lower impact";
+              return (
+                <div key={idx} className="flex items-center justify-between rounded-xl border border-border bg-bg px-4 py-3">
+                  <div>
+                    <p className="text-[13px] font-semibold text-navy">{factor.feature}</p>
+                    <p className="text-[11.5px] font-medium text-navy-soft">{impactLabel}</p>
+                  </div>
+                  <span
+                    className={`flex items-center gap-1 font-mono text-[13px] font-bold ${
+                      isIncrease ? "text-amber-dark" : "text-teal"
+                    }`}
+                  >
+                    {isIncrease ? "↑" : "↓"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* PATIENT CARE & WAITING TIMELINE */}
       <CareWaitTimeline waitingStatus={waitingStatus} operationalState={currentOperationalState} />

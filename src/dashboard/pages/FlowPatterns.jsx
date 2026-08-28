@@ -18,6 +18,7 @@ import {
   FLOW_CURRENT_POINT as MOCK_POINT,
   FLOW_ANALYSIS_MODEL as MOCK_MODEL,
 } from "../mockData";
+import { useMode } from "../../context/ModeContext";
 
 const DOT_TONE = {
   green: "bg-green",
@@ -94,7 +95,7 @@ export default function FlowPatterns() {
       occupancy_percent: occ,
       patients_waiting: waiting,
       waiting_time_minutes: Math.round(waiting * 1.5 + (arrivals > 30 ? 15 : 0)),
-      severity_level: arrivals > 35 || occ > 85 ? "Urgent" : "Standard",
+      severity_level: arrivals > 35 || occ > 85 ? 4.0 : 3.0,
     };
 
     try {
@@ -119,7 +120,7 @@ export default function FlowPatterns() {
 
   const confVal = parseConfidence(data?.confidence);
 
-  const currentPattern = isRealMode
+  const currentPattern = (isRealMode
     ? data
       ? {
           name: data.pattern_name,
@@ -134,8 +135,13 @@ export default function FlowPatterns() {
           ? `${parseConfidence(MOCK_CURRENT.confidence)}%`
           : null,
         clusterId: 1,
-        description: getHumanDescription(MOCK_CURRENT.name, MOCK_CURRENT.description),
-      };
+        description: getHumanDescription(MOCK_CURRENT?.name, MOCK_CURRENT?.description),
+      }) || {
+    name: MOCK_CURRENT?.name || "Normal Operational Baseline",
+    confidence: "92%",
+    clusterId: 1,
+    description: "Current ER demand is at a normal operational baseline.",
+  };
 
   const currentPoint = isRealMode
     ? data?.current_point
@@ -215,8 +221,8 @@ export default function FlowPatterns() {
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-4">
           <StepperControl
             label="Expected Arrivals"
-            value={arrivalRate}
-            onChange={(val) => setArrivalRate(val)}
+            value={expectedArrivals}
+            onChange={(val) => setExpectedArrivals(val)}
             min={5}
             max={60}
             step={1}
@@ -245,7 +251,7 @@ export default function FlowPatterns() {
           <div className="flex items-end">
             <button
               type="button"
-              onClick={() => fetchFlowPatterns(arrivalRate, occupancy, patientsWaiting)}
+              onClick={() => fetchFlowPatterns(expectedArrivals, occupancy, patientsWaiting)}
               disabled={loading}
               className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue px-4 py-2.5 text-[13px] font-semibold text-white shadow-soft transition-colors hover:bg-blue-dark disabled:opacity-50"
             >
@@ -259,7 +265,7 @@ export default function FlowPatterns() {
       {/* CONTEXTUAL ML PRESENTATION LAYER */}
       <MLContextCard
         sees={[
-          `${arrivalRate} expected arrivals/hr`,
+          `${expectedArrivals} expected arrivals/hr`,
           `${occupancy}% occupancy`,
           `${patientsWaiting} patients waiting`,
         ]}

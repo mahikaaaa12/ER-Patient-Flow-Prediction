@@ -110,6 +110,10 @@ export const erflowApi = {
     });
   },
 
+  async detectSurge(hospitalState) {
+    return this.getSurgeDetection(hospitalState);
+  },
+
   /**
    * AI Assistant Query Handler
    */
@@ -151,5 +155,12 @@ export const erflowApi = {
       throw new Error(errText);
     }
     return await res.json();
+  },
+
+  /**
+   * Model Monitoring & Telemetry Report
+   */
+  async getMonitoringReport() {
+    return fetchApi("/api/monitoring");
   },
 };

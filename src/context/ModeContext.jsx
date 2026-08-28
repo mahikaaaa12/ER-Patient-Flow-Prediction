@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from "react";
+import { APP_CONFIG } from "../config/appConfig";
 
 const ModeContext = createContext({
   mode: "REAL", // "REAL" | "DEMO"
@@ -10,7 +11,7 @@ const ModeContext = createContext({
 
 export function ModeProvider({ children }) {
   const [mode, setModeState] = useState(() => {
-    return localStorage.getItem("erflow_app_mode") || "REAL";
+    return localStorage.getItem("erflow_app_mode") || APP_CONFIG.defaultMode;
   });
 
   const setMode = (newMode) => {
