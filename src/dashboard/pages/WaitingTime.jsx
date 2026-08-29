@@ -21,7 +21,6 @@ import StatusBadge from "../components/StatusBadge";
 import ModelBadge from "../components/ModelBadge";
 import TrendChart from "../components/TrendChart";
 import MLContextCard from "../components/MLContextCard";
-import HospitalStateForm, { DEFAULT_HOSPITAL_STATE } from "../components/HospitalStateForm";
 import { erflowApi } from "../../services/api";
 import { WAITING_TIME_STATUS as MOCK_STATUS } from "../mockData";
 import { useMode } from "../../context/ModeContext";
@@ -133,84 +132,15 @@ function CareWaitTimeline({ waitingStatus, operationalState }) {
   );
 }
 
+import CentralContextBanner from "../components/CentralContextBanner";
+import { useERContext } from "../../context/ERContext";
+
 export default function WaitingTime() {
   const { isRealMode, isDemoMode } = useMode();
-  const [data, setData] = useState(null);
-  const [trendSeries, setTrendSeries] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [currentOperationalState, setCurrentOperationalState] = useState(DEFAULT_HOSPITAL_STATE);
+  const { predictions, operationalState, loading, error, updatePredictions } = useERContext();
 
-  async function runInference(state) {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await erflowApi.getWaitingTime(state);
-      setData(res);
-      setCurrentOperationalState(state);
-
-      const baseWait = extractWaitTime(res);
-
-      const hourlyCheckpoints = [
-        { t: "12 AM", hour: 0, mult: 0.5 },
-        { t: "3 AM", hour: 3, mult: 0.4 },
-        { t: "6 AM", hour: 6, mult: 0.6 },
-        { t: "9 AM", hour: 9, mult: 0.8 },
-        { t: "12 PM", hour: 12, mult: 0.9 },
-        { t: "3 PM", hour: 15, mult: 0.85 },
-        { t: "6 PM", hour: 18, mult: 1.0 },
-        { t: "9 PM (proj.)", hour: 21, mult: 1.25, isForecast: true },
-      ];
-
-      const series = await Promise.all(
-        hourlyCheckpoints.map(async (cp) => {
-          const simulatedState = {
-            ...state,
-            hour_of_day: cp.hour,
-            arrival_rate: Math.max(5, Math.round((state.arrival_rate || 28) * cp.mult)),
-            patients_waiting: Math.max(5, Math.round((state.patients_waiting || 24) * cp.mult)),
-          };
-          try {
-            const cpRes = await erflowApi.getWaitingTime(simulatedState);
-            const cpVal = extractWaitTime(cpRes);
-            const validVal = cpVal !== null ? Math.round(cpVal) : (baseWait !== null ? Math.round(baseWait * cp.mult) : null);
-            return {
-              t: cp.t,
-              value: validVal,
-              kind: cp.isForecast ? "forecast" : "observed",
-            };
-          } catch {
-            return {
-              t: cp.t,
-              value: baseWait !== null ? Math.round(baseWait * cp.mult) : null,
-              kind: cp.isForecast ? "forecast" : "observed",
-            };
-          }
-        })
-      );
-
-      const validSeries = series.filter(
-        (point) => typeof point.value === "number" && !Number.isNaN(point.value) && Number.isFinite(point.value)
-      );
-
-      setTrendSeries(validSeries);
-    } catch (err) {
-      console.warn("Waiting time inference failed:", err.message);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (isRealMode) {
-      runInference(DEFAULT_HOSPITAL_STATE);
-    } else {
-      setLoading(false);
-      setError(null);
-    }
-  }, [isRealMode]);
-
+  const data = isRealMode ? predictions?.waiting_time || null : null;
+  const currentOperationalState = operationalState;
   const waitVal = extractWaitTime(data);
   const pred1hVal = parsePredictionValue(data?.predicted_1h);
   const predPeakVal = parsePredictionValue(data?.predicted_peak);
@@ -222,7 +152,7 @@ export default function WaitingTime() {
           predicted1h: pred1hVal !== null ? Math.round(pred1hVal) : "—",
           predictedPeak: predPeakVal !== null ? Math.round(predPeakVal) : "—",
           trend: data.trend || "Stable",
-          model: data.model_name || "XGBoost Regressor",
+          model: data.model_name || "XGBoost Regressor v2",
           isAvailable: true,
         }
       : {
@@ -230,7 +160,7 @@ export default function WaitingTime() {
           predicted1h: "Prediction unavailable",
           predictedPeak: "Prediction unavailable",
           trend: "Stable",
-          model: "XGBoost Regressor",
+          model: "XGBoost Regressor v2",
           isAvailable: false,
         }
     : {
@@ -243,7 +173,7 @@ export default function WaitingTime() {
       };
 
   const trendIsIncreasing = waitingStatus.trend === "Increasing";
-  const trendIsDecreasing = waitingStatus.trend === "Decreasing";
+  const trendSeries = data?.hourly_trend || [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -260,18 +190,20 @@ export default function WaitingTime() {
       <PageHeader
         title="How long are patients likely to wait?"
         subtitle="Live expected wait times, queue progression, and 24-hour wait projections."
-        action={<ModelBadge model={waitingStatus.model} />}
+        action={<ModelBadge model="XGBoost Regressor v2" />}
       />
+
+      <CentralContextBanner moduleName="Expected Waiting Time" />
 
       {isRealMode && error && (
         <div className="flex items-center justify-between rounded-xl border border-red/30 bg-red-tint px-4 py-3 text-[13px] text-red">
           <div className="flex items-center gap-2 font-semibold">
             <AlertTriangle className="h-4 w-4 text-red shrink-0" />
-            <span>Prediction Unavailable: Unable to connect to XGBoost waiting-time model at http://localhost:8000.</span>
+            <span>Prediction Unavailable: Unable to connect to XGBoost waiting-time model.</span>
           </div>
           <button
             type="button"
-            onClick={() => runInference(currentOperationalState)}
+            onClick={() => updatePredictions()}
             className="flex items-center gap-1 font-semibold underline hover:text-red-dark"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Retry
@@ -406,12 +338,7 @@ export default function WaitingTime() {
       {/* PATIENT CARE & WAITING TIMELINE */}
       <CareWaitTimeline waitingStatus={waitingStatus} operationalState={currentOperationalState} />
 
-      {/* INTERACTIVE OPERATIONAL INPUT FORM */}
-      <HospitalStateForm
-        onSubmit={runInference}
-        loading={loading}
-        initialValues={currentOperationalState}
-      />
+
 
       {/* HOURLY WAITING TIME TREND GRAPH */}
       <ChartCard

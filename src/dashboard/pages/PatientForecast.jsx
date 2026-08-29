@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Ambulance, CheckCircle2, Clock3, Database, Gauge, Layers, Play, RefreshCw, ShieldCheck, TrendingUp } from "lucide-react";
+import { AlertTriangle, Ambulance, CheckCircle2, Clock3, Database, Gauge, Layers, Play, RefreshCw, ShieldCheck, TrendingUp } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import ChartCard from "../components/ChartCard";
 import MetricCard from "../components/MetricCard";
@@ -55,62 +55,23 @@ function InsightRow({ icon: Icon, label, children }) {
   );
 }
 
+import CentralContextBanner from "../components/CentralContextBanner";
+import { useERContext } from "../../context/ERContext";
+
 export default function PatientForecast() {
   const { isRealMode, isDemoMode } = useMode();
+  const { predictions, operationalState, loading, error, updatePredictions } = useERContext();
   const [range, setRange] = useState("24h");
-  const [currentRate, setCurrentRate] = useState(28);
   const [preset, setPreset] = useState("baseline");
-  const [apiData, setApiData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
 
-  async function fetchForecast(rateVal, presetId) {
-    setLoading(true);
-    setError(null);
-
-    const mult = presetId === "high_demand" ? 1.4 : presetId === "low_demand" ? 0.5 : 1.0;
-    const history168 = Array.from({ length: 168 }, (_, i) => {
-      const hour = i % 24;
-      const diurnal = Math.sin(((hour - 6) / 24) * 2 * Math.PI) * 8;
-      return Math.max(5, Math.round(rateVal * mult + diurnal));
-    });
-
-    const requestPayload = {
-      arrival_rate: rateVal,
-      recent_arrival_history: history168,
-      hour_of_day: 18,
-      day_of_week: 4,
-      month: 7,
-    };
-
-    try {
-      const res = await erflowApi.getPatientForecast(requestPayload);
-      setApiData(res);
-    } catch (err) {
-      console.warn("Patient forecast fetch failed:", err.message);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (isRealMode) {
-      fetchForecast(28, "baseline");
-    } else {
-      setLoading(false);
-      setError(null);
-    }
-  }, [isRealMode]);
+  const apiData = isRealMode ? predictions?.forecast || null : null;
+  const currentRate = operationalState.arrival_rate;
 
   function handlePresetChange(newPresetId) {
     setPreset(newPresetId);
     const p = SEQUENCE_PRESETS.find((item) => item.id === newPresetId);
-    if (p) {
-      setCurrentRate(p.baseRate);
-      if (isRealMode) {
-        fetchForecast(p.baseRate, newPresetId);
-      }
+    if (p && isRealMode) {
+      updatePredictions({ ...operationalState, arrival_rate: p.baseRate });
     }
   }
 
@@ -169,6 +130,8 @@ export default function PatientForecast() {
         action={<RangeControl value={range} onChange={setRange} />}
       />
 
+      <CentralContextBanner moduleName="Patient Arrival Forecast" />
+
       {isRealMode && error && (
         <div className="flex items-center justify-between rounded-xl border border-red/30 bg-red-tint px-4 py-3 text-[13px] text-red">
           <div className="flex items-center gap-2 font-semibold">
@@ -176,7 +139,7 @@ export default function PatientForecast() {
           </div>
           <button
             type="button"
-            onClick={() => fetchForecast(currentRate, preset)}
+            onClick={() => updatePredictions()}
             className="flex items-center gap-1 font-semibold underline hover:text-red-dark"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Retry
@@ -205,45 +168,21 @@ export default function PatientForecast() {
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div>
-            <label className="block text-[12px] font-semibold uppercase tracking-wider text-navy-soft">
-              168-Hour Sequence Preset
-            </label>
-            <select
-              value={preset}
-              onChange={(e) => handlePresetChange(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-border bg-bg px-3 py-2 text-[13px] font-medium text-navy focus:border-blue focus:outline-none"
-            >
-              {SEQUENCE_PRESETS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <StepperControl
-            label="Current Arrival Velocity"
-            value={currentRate}
-            onChange={(val) => setCurrentRate(val)}
-            min={5}
-            max={60}
-            step={1}
-            unit="pts/hr"
-          />
-
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={() => fetchForecast(currentRate, preset)}
-              disabled={loading}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue px-4 py-2.5 text-[13px] font-semibold text-white shadow-soft transition-colors hover:bg-blue-dark disabled:opacity-50"
-            >
-              <Play className="h-4 w-4 fill-current" />
-              {loading ? "Checking current ER conditions..." : "Update Arrival Forecast"}
-            </button>
-          </div>
+        <div className="mt-3">
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-navy-soft">
+            168-Hour Historical Sequence Preset
+          </label>
+          <select
+            value={preset}
+            onChange={(e) => handlePresetChange(e.target.value)}
+            className="mt-1.5 w-full max-w-md rounded-lg border border-border bg-bg px-3 py-2 text-[13px] font-medium text-navy focus:border-blue focus:outline-none"
+          >
+            {SEQUENCE_PRESETS.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

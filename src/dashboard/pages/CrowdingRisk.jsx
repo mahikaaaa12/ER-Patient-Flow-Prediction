@@ -16,10 +16,10 @@ import ChartCard from "../components/ChartCard";
 import MetricCard from "../components/MetricCard";
 import StatusBadge, { LEVEL_TONE } from "../components/StatusBadge";
 import ModelBadge from "../components/ModelBadge";
-import HospitalStateForm, { DEFAULT_HOSPITAL_STATE } from "../components/HospitalStateForm";
 import BarList from "../components/BarList";
 import MLContextCard from "../components/MLContextCard";
 import { erflowApi } from "../../services/api";
+import { useMode } from "../../context/ModeContext";
 import {
   CROWDING_RISK_SUMMARY as MOCK_SUMMARY,
   CROWDING_RISK_LEVELS,
@@ -192,73 +192,14 @@ function TimelineRow({ time, level, isLast }) {
   );
 }
 
-import { useMode } from "../../context/ModeContext";
+import CentralContextBanner from "../components/CentralContextBanner";
+import { useERContext } from "../../context/ERContext";
 
 export default function CrowdingRisk() {
   const { isRealMode, isDemoMode } = useMode();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [operationalState, setOperationalState] = useState(DEFAULT_HOSPITAL_STATE);
-  const [dynamicTimeline, setDynamicTimeline] = useState([]);
+  const { predictions, operationalState, loading, error, updatePredictions } = useERContext();
 
-  async function runInference(state) {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await erflowApi.getCrowdingRisk(state);
-      setData(res);
-      setOperationalState(state);
-
-      const hours = [
-        { label: "12 PM", h: 12, mult: 0.9 },
-        { label: "3 PM", h: 15, mult: 0.95 },
-        { label: "6 PM", h: 18, mult: 1.0 },
-        { label: "9 PM", h: 21, mult: 1.1 },
-        { label: "12 AM", h: 0, mult: 0.8 },
-      ];
-
-      const points = await Promise.all(
-        hours.map(async (item) => {
-          const simState = {
-            ...state,
-            hour_of_day: item.h,
-            arrival_rate: Math.max(5, Math.round((state.arrival_rate || 28) * item.mult)),
-            patients_waiting: Math.max(5, Math.round((state.patients_waiting || 24) * item.mult)),
-          };
-          try {
-            const simRes = await erflowApi.getCrowdingRisk(simState);
-            return {
-              time: item.label,
-              level: simRes.crowding_level,
-              score: simRes.crowding_score,
-            };
-          } catch {
-            return {
-              time: item.label,
-              level: res.crowding_level,
-              score: res.crowding_score,
-            };
-          }
-        })
-      );
-      setDynamicTimeline(points);
-    } catch (err) {
-      console.warn("Crowding risk inference failed:", err.message);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (isRealMode) {
-      runInference(DEFAULT_HOSPITAL_STATE);
-    } else {
-      setLoading(false);
-      setError(null);
-    }
-  }, [isRealMode]);
+  const data = isRealMode ? predictions?.crowding_risk || null : null;
 
   const crowdingSummary = (isRealMode
     ? data
@@ -281,7 +222,7 @@ export default function CrowdingRisk() {
       ]
     : null;
 
-  const timelineRows = dynamicTimeline.length > 0 ? dynamicTimeline : DEFAULT_TIMELINE;
+  const timelineRows = data?.risk_timeline || DEFAULT_TIMELINE;
 
   return (
     <div className="flex flex-col gap-6">
@@ -301,15 +242,17 @@ export default function CrowdingRisk() {
         action={<ModelBadge model={modelName} />}
       />
 
+      <CentralContextBanner moduleName="Crowding Risk Prediction" />
+
       {isRealMode && error && (
         <div className="flex items-center justify-between rounded-xl border border-red/30 bg-red-tint px-4 py-3 text-[13px] text-red">
           <div className="flex items-center gap-2 font-semibold">
             <AlertTriangle className="h-4 w-4 text-red shrink-0" />
-            <span>Prediction Unavailable: Unable to connect to XGBoost Crowding Classifier at http://localhost:8000.</span>
+            <span>Prediction Unavailable: Unable to connect to XGBoost Crowding Classifier.</span>
           </div>
           <button
             type="button"
-            onClick={() => runInference(operationalState)}
+            onClick={() => updatePredictions()}
             className="flex items-center gap-1 font-semibold underline hover:text-red-dark"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Retry
@@ -370,12 +313,7 @@ export default function CrowdingRisk() {
         </div>
       )}
 
-      {/* INTERACTIVE OPERATIONAL INPUT CONTROLS */}
-      <HospitalStateForm
-        onSubmit={runInference}
-        loading={loading}
-        initialValues={operationalState}
-      />
+
 
       {/* CONTRIBUTING OPERATIONAL FACTORS (LIVE INPUTS) */}
       <ChartCard

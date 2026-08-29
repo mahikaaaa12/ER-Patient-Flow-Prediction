@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, PieChart, Play, RefreshCw, ScatterChart, Sliders } from "lucide-react";
+import { Activity, AlertTriangle, PieChart, Play, RefreshCw, ScatterChart, Sliders } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import ChartCard from "../components/ChartCard";
 import StatusBadge from "../components/StatusBadge";
@@ -76,47 +76,14 @@ function getHumanDescription(patternName, fallbackDesc) {
   return "Current ER demand is at a normal operational baseline.";
 }
 
+import CentralContextBanner from "../components/CentralContextBanner";
+import { useERContext } from "../../context/ERContext";
+
 export default function FlowPatterns() {
   const { isRealMode, isDemoMode } = useMode();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const { predictions, operationalState, loading, error, updatePredictions } = useERContext();
 
-  const [expectedArrivals, setExpectedArrivals] = useState(28);
-  const [occupancy, setOccupancy] = useState(78);
-  const [patientsWaiting, setPatientsWaiting] = useState(24);
-
-  async function fetchFlowPatterns(arrivals = expectedArrivals, occ = occupancy, waiting = patientsWaiting) {
-    setLoading(true);
-    setError(null);
-
-    const requestPayload = {
-      arrival_rate: arrivals,
-      occupancy_percent: occ,
-      patients_waiting: waiting,
-      waiting_time_minutes: Math.round(waiting * 1.5 + (arrivals > 30 ? 15 : 0)),
-      severity_level: arrivals > 35 || occ > 85 ? 4.0 : 3.0,
-    };
-
-    try {
-      const res = await erflowApi.getFlowPatterns(requestPayload);
-      setData(res);
-    } catch (err) {
-      console.warn("Flow patterns fetch failed:", err.message);
-      setError("Unable to connect to K-Means flow pattern clustering service at http://localhost:8000.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (isRealMode) {
-      fetchFlowPatterns(28, 78, 24);
-    } else {
-      setLoading(false);
-      setError(null);
-    }
-  }, [isRealMode]);
+  const data = isRealMode ? predictions?.flow_pattern || null : null;
 
   const confVal = parseConfidence(data?.confidence);
 
@@ -188,15 +155,17 @@ export default function FlowPatterns() {
         action={<ModelBadge model={modelName} />}
       />
 
+      <CentralContextBanner moduleName="Patient Flow Patterns" />
+
       {isRealMode && error && (
         <div className="flex items-center justify-between rounded-xl border border-red/30 bg-red-tint px-4 py-3 text-[13px] text-red">
           <div className="flex items-center gap-2 font-semibold">
             <AlertTriangle className="h-4 w-4 text-red shrink-0" />
-            <span>Prediction Unavailable: Unable to connect to K-Means clustering service at http://localhost:8000.</span>
+            <span>Prediction Unavailable: Unable to connect to K-Means clustering service.</span>
           </div>
           <button
             type="button"
-            onClick={() => fetchFlowPatterns(expectedArrivals, occupancy, patientsWaiting)}
+            onClick={() => updatePredictions()}
             className="flex items-center gap-1 font-semibold underline hover:text-red-dark"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Retry
@@ -204,70 +173,12 @@ export default function FlowPatterns() {
         </div>
       )}
 
-      {/* Interactive Operational Strain Inputs */}
-      <div className="rounded-2xl border border-border bg-surface p-5 shadow-soft sm:p-6">
-        <div className="flex items-center gap-2.5 border-b border-border pb-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-tint text-blue">
-            <Sliders className="h-4 w-4" strokeWidth={2.25} />
-          </span>
-          <div>
-            <h3 className="text-[15px] font-semibold text-navy">Flow Pattern Operational Controls</h3>
-            <p className="text-[12.5px] text-navy-soft">
-              Adjust operational indicators to assign current state to historical demand clusters
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-4">
-          <StepperControl
-            label="Expected Arrivals"
-            value={expectedArrivals}
-            onChange={(val) => setExpectedArrivals(val)}
-            min={5}
-            max={60}
-            step={1}
-            unit="pts/hr"
-          />
-
-          <StepperControl
-            label="Occupancy"
-            value={occupancy}
-            onChange={(val) => setOccupancy(val)}
-            min={20}
-            max={100}
-            step={1}
-            unit="%"
-          />
-
-          <StepperControl
-            label="Patients Waiting"
-            value={patientsWaiting}
-            onChange={(val) => setPatientsWaiting(val)}
-            min={0}
-            max={50}
-            step={1}
-          />
-
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={() => fetchFlowPatterns(expectedArrivals, occupancy, patientsWaiting)}
-              disabled={loading}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue px-4 py-2.5 text-[13px] font-semibold text-white shadow-soft transition-colors hover:bg-blue-dark disabled:opacity-50"
-            >
-              <Play className="h-4 w-4 fill-current" />
-              {loading ? "Evaluating..." : "Evaluate Flow Pattern"}
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* CONTEXTUAL ML PRESENTATION LAYER */}
       <MLContextCard
         sees={[
-          `${expectedArrivals} expected arrivals/hr`,
-          `${occupancy}% occupancy`,
-          `${patientsWaiting} patients waiting`,
+          `${operationalState?.arrival_rate || 28} expected arrivals/hr`,
+          `${operationalState?.occupancy_percent || 78}% occupancy`,
+          `${operationalState?.patients_waiting || 24} patients waiting`,
         ]}
         predicts={`Operational Regime: ${currentPattern.name}`}
         when="Current Shift Window"

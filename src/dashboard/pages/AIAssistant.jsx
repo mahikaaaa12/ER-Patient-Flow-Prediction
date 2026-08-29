@@ -121,6 +121,27 @@ function PredictionUnavailableBadge({ intent }) {
   );
 }
 
+/**
+ * Safely parses markdown bold (**text**) syntax into React <strong> nodes
+ * without using dangerouslySetInnerHTML.
+ */
+function renderFormattedText(text) {
+  if (!text || typeof text !== "string") return text;
+  if (!text.includes("**")) return text;
+
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**") && part.length >= 4) {
+      return (
+        <strong key={index} className="font-bold">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return part;
+  });
+}
+
 function Bubble({ role, text, intent, confidence, data, timestamp, isError }) {
   const isUser = role === "user";
   const isMLIntent = ML_INTENTS.includes(intent);
@@ -150,7 +171,7 @@ function Bubble({ role, text, intent, confidence, data, timestamp, isError }) {
               : "rounded-tl-sm border border-border bg-surface text-navy"
           }`}
         >
-          {text}
+          {renderFormattedText(text)}
         </div>
 
         {/* Clear Distinction: General Chatbot Response vs ML-Backed Prediction Result */}
@@ -215,7 +236,10 @@ function IntroState({ onAsk }) {
   );
 }
 
+import { useERContext } from "../../context/ERContext";
+
 export default function AIAssistant() {
+  const { operationalState } = useERContext();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sessionId, setSessionId] = useState(null);
@@ -239,7 +263,7 @@ export default function AIAssistant() {
     setLoading(true);
 
     try {
-      const res = await erflowApi.sendChatMessage(trimmed, sessionId, {});
+      const res = await erflowApi.sendChatMessage(trimmed, sessionId, operationalState || {});
 
       if (res.session_id) {
         setSessionId(res.session_id);

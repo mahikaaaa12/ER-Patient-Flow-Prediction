@@ -48,6 +48,9 @@ const SUMMARY_ICONS = {
   crowding: AlertTriangle,
 };
 
+import EROperationsControlPanel from "../components/EROperationsControlPanel";
+import { useERContext } from "../../context/ERContext";
+
 function getOperationalPressure(data) {
   if (!data) return { level: "MODERATE", tone: "amber", label: "MODERATE PRESSURE" };
   const crowding = data.crowding_risk?.crowding_level || "MODERATE";
@@ -58,7 +61,7 @@ function getOperationalPressure(data) {
     return { level: "CRITICAL", tone: "red", label: "CRITICAL PRESSURE" };
   }
   if (crowding === "HIGH" || isSurge || occupancy >= 75) {
-    return { level: "HIGH", tone: "amber", label: "HIGH PRESSURE" };
+    return { level: "HIGH", tone: "red", label: "HIGH PRESSURE" };
   }
   if (crowding === "MODERATE" || occupancy >= 50) {
     return { level: "MODERATE", tone: "blue", label: "MODERATE PRESSURE" };
@@ -68,14 +71,14 @@ function getOperationalPressure(data) {
 
 function getModelConsensus(data) {
   if (!data) return { consensus: "Mixed model signals", tone: "amber", signals: 1 };
-  const wtElevated = (data.waiting_time?.waiting_time_minutes || 0) > 40;
-  const crowdingHigh = ["HIGH", "CRITICAL"].includes(data.crowding_risk?.crowding_level);
-  const demandIncreasing = data.forecast?.trend === "Increasing" || data.waiting_time?.trend === "Increasing";
-  const surgeDetected = data.surge_detection?.is_surge;
+  let highSignals = 0;
+  if (data.crowding_risk?.crowding_level === "HIGH" || data.crowding_risk?.crowding_level === "CRITICAL") highSignals++;
+  if (data.waiting_time?.trend === "Increasing" || data.waiting_time?.waiting_time_minutes > 45) highSignals++;
+  if (data.surge_detection?.is_surge) highSignals++;
+  if (data.flow_pattern?.pattern_name === "High Demand") highSignals++;
 
-  const highSignals = [wtElevated, crowdingHigh, demandIncreasing, surgeDetected].filter(Boolean).length;
   if (highSignals >= 3) {
-    return { consensus: "High Operational Strain", tone: "red", signals: highSignals };
+    return { consensus: "High Operational Strain Agreed Across Models", tone: "red", signals: highSignals };
   } else if (highSignals === 0) {
     return { consensus: "Normal Baseline", tone: "teal", signals: 0 };
   } else {
@@ -133,33 +136,8 @@ function getAttentionRequiredObservations(data) {
 
 export default function Overview() {
   const { isRealMode, isDemoMode } = useMode();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { predictions: data, loading, error, updatePredictions, operationalState } = useERContext();
   const [activeModal, setActiveModal] = useState(null); // 'waiting_time' | 'crowding_risk' | null
-
-  async function loadData() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await erflowApi.getDashboardOverview();
-      setData(res);
-    } catch (err) {
-      console.warn("ML API overview fetch failed:", err.message);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (isRealMode) {
-      loadData();
-    } else {
-      setLoading(false);
-      setError(null);
-    }
-  }, [isRealMode]);
 
   const pressure = getOperationalPressure(data);
   const consensus = getModelConsensus(data);
@@ -312,16 +290,16 @@ export default function Overview() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold shadow-soft border transition-colors ${
-              pressure.tone === "red"
-                ? "border-red-dark bg-red text-white shadow-md"
+            <div className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold border transition-colors ${
+              pressure.tone === "red" || pressure.level === "HIGH" || pressure.level === "CRITICAL"
+                ? "border-red-dark bg-red text-white shadow-[0_2px_10px_rgba(220,38,38,0.35)]"
                 : pressure.tone === "amber"
-                ? "border-amber/40 bg-amber-tint text-amber-dark"
+                ? "border-amber/40 bg-amber-tint text-amber-dark shadow-soft"
                 : pressure.tone === "blue"
-                ? "border-blue/40 bg-blue-tint text-blue-dark"
-                : "border-teal/40 bg-teal-tint text-teal"
+                ? "border-blue/40 bg-blue-tint text-blue-dark shadow-soft"
+                : "border-teal/40 bg-teal-tint text-teal shadow-soft"
             }`}>
-              <ShieldAlert className={`h-4 w-4 shrink-0 ${pressure.tone === "red" ? "text-white" : ""}`} />
+              <ShieldAlert className={`h-4 w-4 shrink-0 ${pressure.tone === "red" || pressure.level === "HIGH" || pressure.level === "CRITICAL" ? "text-white" : ""}`} />
               <span>CURRENT PRESSURE: {pressure.level}</span>
             </div>
 
@@ -397,6 +375,9 @@ export default function Overview() {
           </div>
         </div>
       )}
+
+      {/* CENTRALIZED ER OPERATIONS CONTROL PANEL */}
+      <EROperationsControlPanel />
 
       {/* WHAT NEEDS ATTENTION & MODEL CONSENSUS SECTION */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

@@ -2,8 +2,8 @@ import React from "react";
 import { Minus, Plus } from "lucide-react";
 
 /**
- * Reusable StepperControl component replacing range/slider controls across ERFlow.
- * Provides compact, accessible, precise +/- numerical stepping.
+ * Reusable compact StepperControl component across ERFlow.
+ * Provides precise +/- numerical stepping with compact, modern dashboard styling.
  */
 export default function StepperControl({
   label,
@@ -35,49 +35,65 @@ export default function StepperControl({
     onChange?.(nextVal);
   };
 
-  // Format value display based on unit
-  const formatDisplay = () => {
+  // Format value & unit typography
+  const renderValueAndUnit = () => {
     if (unit === ":00") {
       const padded = String(Math.floor(numericValue)).padStart(2, "0");
-      return `${padded}:00`;
+      return (
+        <span className="font-mono text-[13px] font-bold text-navy">
+          {padded}:00
+        </span>
+      );
     }
     if (unit === "%") {
-      return `${numericValue}%`;
+      return (
+        <span className="font-mono text-[13px] font-bold text-navy">
+          {numericValue}
+          <span className="ml-0.5 text-[11px] font-semibold text-navy-soft">%</span>
+        </span>
+      );
     }
     if (unit) {
-      return `${numericValue} ${unit}`;
+      return (
+        <span className="font-mono text-[13px] font-bold text-navy">
+          {numericValue}{" "}
+          <span className="text-[10.5px] font-medium text-navy-muted">{unit}</span>
+        </span>
+      );
     }
-    return `${numericValue}`;
+    return (
+      <span className="font-mono text-[13px] font-bold text-navy">
+        {numericValue}
+      </span>
+    );
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1">
       {label && (
         <div className="flex items-center justify-between">
-          <label className="block text-[12px] font-semibold uppercase tracking-wider text-navy-soft">
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-navy-soft truncate">
             {label}
           </label>
           {description && (
-            <span className="text-[11px] font-medium text-navy-muted">{description}</span>
+            <span className="text-[10px] font-medium text-navy-muted truncate">{description}</span>
           )}
         </div>
       )}
 
-      <div className="flex items-center justify-between rounded-xl border border-border bg-bg px-3 py-2 shadow-sm transition-all focus-within:border-blue">
+      <div className="flex h-9 items-center justify-between rounded-lg border border-border/80 bg-surface px-1.5 shadow-none transition-all hover:border-blue/40 focus-within:border-blue">
         <button
           type="button"
           onClick={handleDecrement}
           disabled={disabled || isMin}
           aria-label={`Decrease ${label || "value"}`}
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-bg-card text-navy transition-colors hover:bg-border disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-blue"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-bg text-navy transition-colors hover:bg-blue-tint hover:text-blue disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none"
         >
-          <Minus className="h-4 w-4 stroke-[2.5]" />
+          <Minus className="h-3 w-3 stroke-[2.25]" />
         </button>
 
-        <div className="px-3 text-center">
-          <span className="font-mono text-[17px] font-bold text-navy tracking-tight">
-            {formatDisplay()}
-          </span>
+        <div className="px-1.5 text-center truncate">
+          {renderValueAndUnit()}
         </div>
 
         <button
@@ -85,13 +101,13 @@ export default function StepperControl({
           onClick={handleIncrement}
           disabled={disabled || isMax}
           aria-label={`Increase ${label || "value"}`}
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-bg-card text-navy transition-colors hover:bg-border disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-blue"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-bg text-navy transition-colors hover:bg-blue-tint hover:text-blue disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none"
         >
-          <Plus className="h-4 w-4 stroke-[2.5]" />
+          <Plus className="h-3 w-3 stroke-[2.25]" />
         </button>
       </div>
 
-      {error && <p className="mt-0.5 text-[11px] font-medium text-red">{error}</p>}
+      {error && <p className="mt-0.5 text-[10.5px] font-medium text-red">{error}</p>}
     </div>
   );
 }

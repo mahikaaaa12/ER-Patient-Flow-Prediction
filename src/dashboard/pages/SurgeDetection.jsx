@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertOctagon, CalendarClock, Info, Play, RefreshCw, Sliders, TrendingUp } from "lucide-react";
+import { AlertOctagon, AlertTriangle, CalendarClock, Info, Play, RefreshCw, Sliders, TrendingUp } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import ChartCard from "../components/ChartCard";
 import MetricCard from "../components/MetricCard";
@@ -33,52 +33,14 @@ function SurgeEventCard({ when, severity, rate }) {
   );
 }
 
+import CentralContextBanner from "../components/CentralContextBanner";
+import { useERContext } from "../../context/ERContext";
+
 export default function SurgeDetection() {
   const { isRealMode, isDemoMode } = useMode();
-  const [arrivalRate, setArrivalRate] = useState(32);
-  const [occupancy, setOccupancy] = useState(82);
-  const [hourOfDay, setHourOfDay] = useState(18);
-  const [data, setData] = useState(null);
-  const [timelineData, setTimelineData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const { predictions, operationalState, loading, error, updatePredictions } = useERContext();
 
-  async function fetchSurgeData(rateVal = arrivalRate, occVal = occupancy, hourVal = hourOfDay) {
-    setLoading(true);
-    setError(null);
-
-    const requestPayload = {
-      arrival_rate: rateVal,
-      occupancy_percent: occVal,
-      hour_of_day: hourVal,
-      available_beds: 8,
-      available_doctors: 5,
-      available_nurses: 9,
-      patients_waiting: 24,
-      severity_level: 3,
-      day_of_week: 4,
-      month: 7,
-    };
-
-    try {
-      const res = await erflowApi.getSurgeDetection(requestPayload);
-      setData(res);
-    } catch (err) {
-      console.warn("Surge detection fetch failed:", err.message);
-      setError("Unable to connect to DBSCAN surge detection service at http://localhost:8000.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (isRealMode) {
-      fetchSurgeData(32, 82, 18);
-    } else {
-      setLoading(false);
-      setError(null);
-    }
-  }, [isRealMode]);
+  const data = isRealMode ? predictions?.surge_detection || null : null;
 
   const surgeStatus = (isRealMode
     ? data
@@ -96,6 +58,7 @@ export default function SurgeDetection() {
     : MOCK_STATUS) || MOCK_STATUS;
 
   const modelName = isRealMode ? data?.model_name || "DBSCAN Density Anomaly" : MOCK_MODEL;
+  const timelineData = data?.timeline || DEFAULT_TIMELINE;
 
   return (
     <div className="flex flex-col gap-6">
@@ -115,80 +78,23 @@ export default function SurgeDetection() {
         action={<ModelBadge model={modelName} />}
       />
 
+      <CentralContextBanner moduleName="Patient Surge Anomaly Detection" />
+
       {isRealMode && error && (
         <div className="flex items-center justify-between rounded-xl border border-red/30 bg-red-tint px-4 py-3 text-[13px] text-red">
           <div className="flex items-center gap-2 font-semibold">
             <AlertTriangle className="h-4 w-4 text-red shrink-0" />
-            <span>Prediction Unavailable: Unable to connect to DBSCAN surge detection service at http://localhost:8000.</span>
+            <span>Prediction Unavailable: Unable to connect to DBSCAN surge detection service.</span>
           </div>
           <button
             type="button"
-            onClick={() => fetchSurgeData(arrivalRate, occupancy, hourOfDay)}
+            onClick={() => updatePredictions()}
             className="flex items-center gap-1 font-semibold underline hover:text-red-dark"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Retry
           </button>
         </div>
       )}
-
-      {/* Interactive Operational Surge Inputs */}
-      <div className="rounded-2xl border border-border bg-surface p-5 shadow-soft sm:p-6">
-        <div className="flex items-center gap-2.5 border-b border-border pb-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-tint text-blue">
-            <Sliders className="h-4 w-4" strokeWidth={2.25} />
-          </span>
-          <div>
-            <h3 className="text-[15px] font-semibold text-navy">Surge Detection Operational Controls</h3>
-            <p className="text-[12.5px] text-navy-soft">
-              Simulate arrival rate spikes to test surge anomaly detection against normal operational baselines
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StepperControl
-            label="Simulated Arrival Volume"
-            value={arrivalRate}
-            onChange={(val) => setArrivalRate(val)}
-            min={5}
-            max={60}
-            step={1}
-            unit="pts/hr"
-          />
-
-          <StepperControl
-            label="Bed Occupancy"
-            value={occupancy}
-            onChange={(val) => setOccupancy(val)}
-            min={10}
-            max={100}
-            step={1}
-            unit="%"
-          />
-
-          <StepperControl
-            label="Time of Day"
-            value={hourOfDay}
-            onChange={(val) => setHourOfDay(val)}
-            min={0}
-            max={23}
-            step={1}
-            unit=":00"
-          />
-        </div>
-
-        <div className="mt-4 flex justify-end">
-          <button
-            type="button"
-            onClick={() => fetchSurgeData(arrivalRate, occupancy, hourOfDay)}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue px-5 py-2 text-[13px] font-semibold text-white shadow-soft transition-colors hover:bg-blue-dark disabled:opacity-50"
-          >
-            <Play className="h-3.5 w-3.5 fill-current" />
-            {loading ? "Running DBSCAN..." : "Run DBSCAN Surge Detection"}
-          </button>
-        </div>
-      </div>
 
       <ChartCard>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -247,9 +153,9 @@ export default function SurgeDetection() {
       {/* CONTEXTUAL ML PRESENTATION LAYER */}
       <MLContextCard
         sees={[
-          `${arrivalRate} arrivals/hr simulated`,
+          `${operationalState?.arrival_rate || 28} arrivals/hr evaluated`,
           `Baseline ${surgeStatus.normalRateValue}/hr`,
-          `${occupancy}% occupancy`,
+          `${operationalState?.occupancy_percent || 78}% occupancy`,
         ]}
         predicts={`${surgeStatus.status} (${surgeStatus.severity} severity)`}
         when="Current Operational Window"

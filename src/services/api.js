@@ -3,7 +3,10 @@
  * Connects React frontend to FastAPI ML Inference Backend.
  */
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+import { APP_CONFIG } from "../config/appConfig";
+
+const BASE_URL = APP_CONFIG.apiBaseUrl;
+const CHATBOT_URL = APP_CONFIG.chatbotApiUrl;
 
 /**
  * Helper to handle fetch requests with error parsing and fallback support.
@@ -33,7 +36,8 @@ async function fetchApi(endpoint, options = {}) {
     return await res.json();
   } catch (error) {
     if (error.name === "TypeError" && error.message.includes("fetch")) {
-      throw new Error("Unable to connect to ERFlow ML Inference Engine. Please verify the backend is running at http://localhost:8000.");
+      const target = BASE_URL || "configured backend URL";
+      throw new Error(`Unable to connect to ERFlow ML Inference Engine at ${target}. Please verify backend service status.`);
     }
     throw error;
   }
@@ -131,11 +135,6 @@ export const erflowApi = {
    * Chatbot Microservice API Handler (Unified FastAPI Backend)
    */
   async sendChatMessage(message, sessionId, context) {
-    const CHATBOT_URL = (
-      import.meta.env.VITE_CHATBOT_API_URL ||
-      import.meta.env.VITE_API_BASE_URL ||
-      "http://localhost:8000"
-    ).replace(/\/+$/, "");
     const url = `${CHATBOT_URL}/api/chat`;
     const res = await fetch(url, {
       method: "POST",

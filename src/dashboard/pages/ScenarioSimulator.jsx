@@ -80,45 +80,23 @@ const PRESET_SCENARIOS = {
   },
 };
 
-const BASELINE_STATE = PRESET_SCENARIOS.busy.state;
+import CentralContextBanner from "../components/CentralContextBanner";
+import { useERContext } from "../../context/ERContext";
 
 export default function ScenarioSimulator() {
   const { isRealMode, isDemoMode } = useMode();
-  const [currentData, setCurrentData] = useState(null);
+  const { predictions, operationalState } = useERContext();
+
+  const BASELINE_STATE = operationalState;
+  const currentData = predictions;
+
   const [scenarioData, setScenarioData] = useState(null);
-  const [loadingCurrent, setLoadingCurrent] = useState(false);
   const [loadingScenario, setLoadingScenario] = useState(false);
   const [error, setError] = useState(null);
-  const [activePreset, setActivePreset] = useState("busy");
+  const [activePreset, setActivePreset] = useState("custom");
 
-  // Form Controls State
+  // Form Controls State initialized to Central ER State Baseline
   const [scenarioControls, setScenarioControls] = useState(BASELINE_STATE);
-
-  // Fetch Current ER Baseline on Mount
-  async function fetchCurrentBaseline() {
-    setLoadingCurrent(true);
-    setError(null);
-    try {
-      if (isRealMode) {
-        const res = await erflowApi.getDashboardOverview(BASELINE_STATE);
-        setCurrentData(res);
-      } else {
-        // Demo baseline
-        setCurrentData({
-          waiting_time: { waiting_time_minutes: 66.5, trend: "Increasing" },
-          crowding_risk: { crowding_level: "HIGH", crowding_score: 78 },
-          flow_pattern: { pattern_name: "Medium Demand", cluster_id: 1 },
-          surge_detection: { status: "NORMAL OPERATIONAL LOAD", is_surge: false, severity: "Low" },
-          patient_forecast: { horizons: { "3h": 56 } },
-        });
-      }
-    } catch (err) {
-      console.warn("Baseline overview fetch failed:", err.message);
-      setError("Unable to connect to ERFlow ML backend at http://localhost:8000.");
-    } finally {
-      setLoadingCurrent(false);
-    }
-  }
 
   // Execute Scenario Analysis independently against FastAPI Backend
   async function analyzeScenario(controlsToAnalyze = scenarioControls) {
@@ -182,9 +160,14 @@ export default function ScenarioSimulator() {
   }
 
   useEffect(() => {
-    fetchCurrentBaseline();
     analyzeScenario(BASELINE_STATE);
-  }, [isRealMode]);
+  }, [isRealMode, operationalState]);
+
+  const resetToCentralBaseline = () => {
+    setActivePreset("custom");
+    setScenarioControls(BASELINE_STATE);
+    analyzeScenario(BASELINE_STATE);
+  };
 
   const handlePresetSelect = (presetKey) => {
     setActivePreset(presetKey);
@@ -241,6 +224,8 @@ export default function ScenarioSimulator() {
         action={<ModelBadge model="Multi-Model Scenario Engine" />}
       />
 
+      <CentralContextBanner moduleName="ER Scenario Simulator" />
+
       {isRealMode && error && (
         <div className="flex items-center justify-between rounded-xl border border-red/30 bg-red-tint px-4 py-3 text-[13px] text-red">
           <div className="flex items-center gap-2 font-semibold">
@@ -249,10 +234,7 @@ export default function ScenarioSimulator() {
           </div>
           <button
             type="button"
-            onClick={() => {
-              fetchCurrentBaseline();
-              analyzeScenario();
-            }}
+            onClick={() => analyzeScenario()}
             className="flex items-center gap-1 font-semibold underline hover:text-red-dark"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Retry
@@ -269,7 +251,15 @@ export default function ScenarioSimulator() {
               Presets only populate operational inputs — predictions are determined exclusively by the ML backend.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={resetToCentralBaseline}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-blue/40 bg-blue-tint px-3.5 py-2 text-[12.5px] font-bold text-blue hover:bg-blue hover:text-white transition-all shadow-sm"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Reset to Current ER Conditions</span>
+            </button>
             {Object.keys(PRESET_SCENARIOS).map((key) => {
               const p = PRESET_SCENARIOS[key];
               const isActive = activePreset === key;

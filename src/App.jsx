@@ -13,6 +13,7 @@ import AIAssistant from "./dashboard/pages/AIAssistant";
 import NotFound from "./pages/NotFound";
 import ErrorBoundary from "./dashboard/components/ErrorBoundary";
 import { ModeProvider } from "./context/ModeContext";
+import { ERProvider } from "./context/ERContext";
 
 function AppContent() {
   const location = useLocation();
@@ -42,7 +43,9 @@ function AppContent() {
 function App() {
   return (
     <ModeProvider>
-      <AppContent />
+      <ERProvider>
+        <AppContent />
+      </ERProvider>
     </ModeProvider>
   );
 }
