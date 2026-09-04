@@ -1026,6 +1026,7 @@ def load_real_models() -> None:
         os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models"),
         os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "ml_model"),
         os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "backend", "artifacts"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "backend", "artifacts"),
     ]
 
     target_dir = None

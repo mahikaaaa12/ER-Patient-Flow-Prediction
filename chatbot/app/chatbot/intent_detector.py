@@ -55,6 +55,15 @@ class IntentDetector:
         (r"who\s*built\s*this", 0.90),
     ]
 
+    # 5b. KNOWLEDGE QUERY PATTERNS
+    KNOWLEDGE_PATTERNS = [
+        (r"\b(what\s*is|explain|tell\s*me\s*about)\s*(er\s*)?triage\b", 0.95),
+        (r"\b(esi\s*levels?|emergency\s*severity\s*index|acuity\s*level)\b", 0.95),
+        (r"\b(diversion\s*policy|full\s*capacity\s*protocol|hallway\s*beds?)\b", 0.95),
+        (r"\b(causes\s*of|reasons\s*for)\s*(er\s*)?(overcrowding|crowding|delays)", 0.95),
+        (r"\b(knowledge\s*base|hospital\s*guidelines|triage\s*protocols?)\b", 0.95),
+    ]
+
     # 6. WAITING TIME PATTERNS
     WAITING_TIME_PATTERNS = [
         (r"why\s*is\s*(the\s*)?wait(ing)?([\s\-]*time)?\s*(so\s*)?(high|long|elevated)?", 0.95),
@@ -173,6 +182,7 @@ class IntentDetector:
             (Intent.HELP, self.HELP_PATTERNS),
             (Intent.MODEL_INFO, self.MODEL_INFO_PATTERNS),
             (Intent.PROJECT_INFO, self.PROJECT_INFO_PATTERNS),
+            (Intent.KNOWLEDGE_QUERY, self.KNOWLEDGE_PATTERNS),
             (Intent.WAITING_TIME, self.WAITING_TIME_PATTERNS),
             (Intent.PATIENT_VOLUME, self.PATIENT_VOLUME_PATTERNS),
             (Intent.FLOW_PATTERN, self.FLOW_PATTERN_PATTERNS),

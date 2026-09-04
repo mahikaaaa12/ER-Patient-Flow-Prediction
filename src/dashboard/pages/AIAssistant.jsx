@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Activity,
   AlertTriangle,
+  BookOpen,
   Bot,
   CheckCircle2,
   ChevronDown,
@@ -36,18 +37,18 @@ const ML_INTENTS = [
 
 const SUGGESTED_QUESTIONS = [
   "How busy is the ER right now?",
+  "What are the ESI level 1 triage guidelines?",
   "What is the expected patient volume?",
   "Will crowding increase?",
   "What is the current waiting-time risk?",
-  "What patterns are you seeing?",
 ];
 
 const TOPIC_CATEGORIES = [
   { label: "Patient Flow", query: "How busy is the ER right now?", icon: Activity },
   { label: "Waiting Times", query: "What is the current waiting-time risk?", icon: Clock },
-  { label: "Crowding", query: "Will crowding increase?", icon: ShieldAlert },
+  { label: "Triage Protocols", query: "What are the ESI level 1 triage guidelines?", icon: BookOpen },
+  { label: "Crowding Risk", query: "Will crowding increase?", icon: ShieldAlert },
   { label: "Demand Forecasts", query: "What is the expected patient volume?", icon: TrendingUp },
-  { label: "Flow Patterns", query: "What patterns are you seeing?", icon: Sparkles },
 ];
 
 function MLPredictionCard({ data, intent, confidence, timestamp }) {
@@ -145,7 +146,11 @@ function renderFormattedText(text) {
 function Bubble({ role, text, intent, confidence, data, timestamp, isError }) {
   const isUser = role === "user";
   const isMLIntent = ML_INTENTS.includes(intent);
+  const isKnowledge = intent === "KNOWLEDGE_QUERY" || data?.rag_retrieval === true;
   const hasMLData = data && typeof data === "object" && !data.validation_failed;
+
+  // Extract subtle source names if present
+  const sources = Array.isArray(data?.sources) && data.sources.length > 0 ? data.sources : null;
 
   return (
     <div className={`flex items-start gap-2.5 ${isUser ? "flex-row-reverse" : ""}`}>
@@ -174,10 +179,17 @@ function Bubble({ role, text, intent, confidence, data, timestamp, isError }) {
           {renderFormattedText(text)}
         </div>
 
-        {/* Clear Distinction: General Chatbot Response vs ML-Backed Prediction Result */}
+        {/* Distinction: General Assistant vs Knowledge Retrieval vs ML Prediction Result */}
         {!isUser && !isError && (
           <>
-            {!isMLIntent ? (
+            {isKnowledge ? (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11.5px] text-navy-soft">
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue/30 bg-blue-tint/70 px-2.5 py-1 font-sans text-[11.5px] font-medium text-blue-dark">
+                  <BookOpen className="h-3.5 w-3.5 text-blue" />
+                  Knowledge Base Source: <span className="font-semibold">{sources ? sources.join(", ") : "Hospital Documents"}</span>
+                </span>
+              </div>
+            ) : !isMLIntent ? (
               <div className="mt-1.5 flex items-center gap-2 text-[11px] text-navy-soft">
                 <span className="rounded-md border border-border bg-bg px-2 py-0.5 font-mono font-semibold">
                   💬 Operational Assistant ({intent || "GENERAL"})
@@ -215,7 +227,7 @@ function IntroState({ onAsk }) {
           ER Operations Companion
         </h3>
         <p className="mx-auto mt-1.5 max-w-md text-[13.5px] leading-relaxed text-navy-soft">
-          Ask questions about live patient volume, queue waiting times, crowding risk, and operational flow patterns.
+          Ask questions about live patient volume, queue waiting times, crowding risk, and ER triage knowledge base protocols.
         </p>
       </div>
 
@@ -306,7 +318,7 @@ export default function AIAssistant() {
         {/* Main Chat Panel */}
         <PageCard
           title="ER Operations Companion"
-          subtitle="Ask questions about patient demand, waiting times, crowding risk, and department operations."
+          subtitle="Ask questions about patient demand, waiting times, crowding risk, triage protocols, and department operations."
           icon={Bot}
           className="flex min-w-0 flex-col xl:col-span-2"
         >
@@ -328,7 +340,7 @@ export default function AIAssistant() {
                 {loading && (
                   <div className="flex items-center gap-2 text-[13px] text-navy-soft italic">
                     <Loader2 className="h-4 w-4 animate-spin text-blue" />
-                    Checking current ER conditions...
+                    Checking current ER conditions & knowledge base...
                   </div>
                 )}
                 <div ref={endRef} />
@@ -349,7 +361,7 @@ export default function AIAssistant() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about forecasts, crowding, waiting times…"
+              placeholder="Ask about forecasts, crowding, wait times, or triage guidelines…"
               disabled={loading}
               className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-3.5 py-2.5 text-[13.5px] text-navy placeholder:text-navy-soft focus:border-blue focus:outline-none disabled:opacity-50"
             />
@@ -482,7 +494,7 @@ export default function AIAssistant() {
                   </div>
                 ))}
                 <p className="mt-1 text-[11.5px] leading-relaxed text-navy-soft">
-                  The assistant explains and summarizes outputs from these underlying models — it does not generate predictions itself.
+                  The assistant explains and summarizes outputs from these underlying models and ChromaDB knowledge documents.
                 </p>
               </div>
             )}

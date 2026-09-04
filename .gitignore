@@ -13,3 +13,6 @@ scratch/
 .env.local
 .env.*
 !.env.example
+# RAG Vector Database Storage
+backend/knowledge_base/vector_db/
+*.sqlite3

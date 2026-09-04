@@ -30,8 +30,8 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str = Field(..., description="Generated text response for the user")
     intent: str = Field(..., description="Detected user intent")
-    data: Optional[Dict[str, Any]] = Field(default=None, description="Prediction data payload, or null if unavailable")
-    confidence: float = Field(default=0.0, ge=0.0, le=1.0, description="Confidence score for the detected intent")
+    data: Optional[Dict[str, Any]] = Field(default=None, description="Prediction or RAG data payload, or null if unavailable")
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0, description="Confidence score for the detected intent or retrieval")
     session_id: str = Field(..., description="Conversation session ID")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Response timestamp")
 
@@ -39,3 +39,16 @@ class ChatResponse(BaseModel):
 class ConversationHistoryResponse(BaseModel):
     session_id: str
     messages: List[MessageItem]
+
+
+class RAGQueryRequest(BaseModel):
+    query: str = Field(..., min_length=1, description="Natural language question for knowledge base search")
+    top_k: Optional[int] = Field(default=3, ge=1, le=10, description="Number of document chunks to retrieve")
+
+
+class RAGQueryResponse(BaseModel):
+    answer: str = Field(..., description="Synthesized RAG answer or context string")
+    confidence: float = Field(default=0.0, description="Maximum similarity confidence score")
+    found: bool = Field(default=False, description="True if relevant knowledge context was found")
+    citations: List[Dict[str, Any]] = Field(default_factory=list, description="Document chunk citations and section metadata")
+    sources: List[str] = Field(default_factory=list, description="Source filenames referenced in the answer")
