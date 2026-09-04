@@ -83,13 +83,87 @@ const PRESET_SCENARIOS = {
 import CentralContextBanner from "../components/CentralContextBanner";
 import { useERContext } from "../../context/ERContext";
 
+/**
+ * Helper to generate deterministic scenario predictions in DEMO MODE
+ * that logically respond to all 8 operational variables.
+ */
+function computeDemoPredictions(controls) {
+  const arr = controls.arrival_rate ?? 28;
+  const occ = controls.occupancy_percent ?? 78;
+  const wait = controls.patients_waiting ?? 24;
+  const beds = controls.available_beds ?? 8;
+  const docs = controls.available_doctors ?? 5;
+  const nurses = controls.available_nurses ?? 9;
+  const acuity = controls.severity_level ?? 3.0;
+  const hour = controls.hour_of_day ?? 18;
+
+  const totalStaff = Math.max(1, docs + nurses);
+  const ptsPerStaff = wait / totalStaff;
+  const ptsPerBed = wait / (Math.max(1, beds) + 1);
+
+  let timeModifier = 0;
+  if (hour >= 17 && hour <= 21) {
+    timeModifier = 10;
+  } else if (hour >= 1 && hour <= 5) {
+    timeModifier = -15;
+  }
+
+  const rawWaitTime = 12 + wait * 1.2 + arr * 0.5 + ptsPerStaff * 8.0 + ptsPerBed * 6.0 + (acuity - 3.0) * 10.0 + timeModifier;
+  const waitTime = Math.max(5, Math.round(rawWaitTime));
+
+  const rawScore = occ * 0.5 + Math.min(40, ptsPerStaff * 12) + (arr / 50) * 20 + (acuity - 3.0) * 5;
+  const score = Math.min(100, Math.max(10, Math.round(rawScore)));
+
+  const level = score >= 85 ? "CRITICAL" : score >= 70 ? "HIGH" : score >= 45 ? "MODERATE" : "LOW";
+  const isSurge = arr > 40 || occ > 88 || ptsPerStaff > 4.0;
+
+  let pattern_name = "Medium Demand";
+  let cluster_id = 1;
+  if (arr >= 38 || occ >= 85 || wait >= 35) {
+    pattern_name = "High Demand";
+    cluster_id = 0;
+  } else if (arr <= 15 && occ <= 50 && wait <= 10) {
+    pattern_name = "Low Demand";
+    cluster_id = 2;
+  }
+
+  const top_factors = [
+    { feature: "Patients Waiting", direction: wait > 20 ? "increases" : "decreases", importance: 0.45 },
+    { feature: "Occupancy Rate", direction: occ > 75 ? "increases" : "decreases", importance: 0.25 },
+    { feature: "Staffing Load", direction: ptsPerStaff > 2.5 ? "increases" : "decreases", importance: 0.18 },
+    { feature: "Arrival Velocity", direction: arr > 30 ? "increases" : "decreases", importance: 0.12 },
+  ];
+
+  return {
+    waiting_time: {
+      waiting_time_minutes: waitTime,
+      trend: arr > 30 || wait > 25 ? "Increasing" : "Stable",
+      explanation: { top_factors },
+    },
+    crowding_risk: {
+      crowding_level: level,
+      crowding_score: score,
+      explanation: { top_factors },
+    },
+    flow_pattern: {
+      pattern_name,
+      cluster_id,
+    },
+    surge_detection: {
+      status: isSurge ? "ANOMALOUS SURGE DETECTED" : "NORMAL OPERATIONAL LOAD",
+      is_surge: isSurge,
+      severity: isSurge ? (arr > 50 || occ > 90 ? "High" : "Moderate") : "Low",
+    },
+    patient_forecast: { horizons: { "3h": Math.round(arr * 2.2) } },
+  };
+}
+
 export default function ScenarioSimulator() {
   const { isRealMode, isDemoMode } = useMode();
   const { predictions, operationalState } = useERContext();
 
   const BASELINE_STATE = operationalState;
-  const currentData = predictions;
-
+  const [baselineData, setBaselineData] = useState(predictions);
   const [scenarioData, setScenarioData] = useState(null);
   const [loadingScenario, setLoadingScenario] = useState(false);
   const [error, setError] = useState(null);
@@ -98,7 +172,31 @@ export default function ScenarioSimulator() {
   // Form Controls State initialized to Central ER State Baseline
   const [scenarioControls, setScenarioControls] = useState(BASELINE_STATE);
 
-  // Execute Scenario Analysis independently against FastAPI Backend
+  // Initialize or establish baseline predictions separately
+  useEffect(() => {
+    let isMounted = true;
+    async function initBaseline() {
+      if (predictions) {
+        setBaselineData(predictions);
+      } else {
+        try {
+          if (isRealMode) {
+            const res = await erflowApi.getDashboardOverview(BASELINE_STATE);
+            if (isMounted) setBaselineData(res);
+          } else {
+            const res = computeDemoPredictions(BASELINE_STATE);
+            if (isMounted) setBaselineData(res);
+          }
+        } catch {
+          // If baseline fetch fails, keep baseline as null
+        }
+      }
+    }
+    initBaseline();
+    return () => { isMounted = false; };
+  }, [isRealMode, predictions, operationalState]);
+
+  // Execute Scenario Analysis against FastAPI Backend or Demo Engine
   async function analyzeScenario(controlsToAnalyze = scenarioControls) {
     setLoadingScenario(true);
     setError(null);
@@ -107,49 +205,8 @@ export default function ScenarioSimulator() {
         const res = await erflowApi.getDashboardOverview(controlsToAnalyze);
         setScenarioData(res);
       } else {
-        // Synthetic Scenario Predictions based on controls
-        const arr = controlsToAnalyze.arrival_rate;
-        const occ = controlsToAnalyze.occupancy_percent;
-        const wait = controlsToAnalyze.patients_waiting;
-
-        const isSurge = arr > 40 || occ > 88;
-        const waitTime = Math.round(15 + wait * 1.5 + arr * 0.8);
-        const level = occ > 90 || wait > 45 ? "CRITICAL" : occ > 70 ? "HIGH" : occ > 40 ? "MODERATE" : "LOW";
-        const score = Math.min(100, Math.round(occ * 0.7 + (wait / 60) * 30));
-
-        setScenarioData({
-          waiting_time: {
-            waiting_time_minutes: waitTime,
-            trend: arr > 30 ? "Increasing" : "Stable",
-            explanation: {
-              top_factors: [
-                { feature: "Patients Waiting", direction: "increases", importance: 0.55 },
-                { feature: "Arrival Rate", direction: "increases", importance: 0.25 },
-                { feature: "Occupancy Percent", direction: "increases", importance: 0.15 },
-              ],
-            },
-          },
-          crowding_risk: {
-            crowding_level: level,
-            crowding_score: score,
-            explanation: {
-              top_factors: [
-                { feature: "Occupancy Percent", direction: "increases", importance: 0.60 },
-                { feature: "Patients Waiting", direction: "increases", importance: 0.25 },
-              ],
-            },
-          },
-          flow_pattern: {
-            pattern_name: arr > 40 ? "High Demand" : arr < 15 ? "Low Demand" : "Medium Demand",
-            cluster_id: arr > 40 ? 0 : arr < 15 ? 2 : 1,
-          },
-          surge_detection: {
-            status: isSurge ? "ANOMALOUS SURGE DETECTED" : "NORMAL OPERATIONAL LOAD",
-            is_surge: isSurge,
-            severity: isSurge ? (arr > 50 ? "High" : "Moderate") : "Low",
-          },
-          patient_forecast: { horizons: { "3h": Math.round(arr * 2.2) } },
-        });
+        const res = computeDemoPredictions(controlsToAnalyze);
+        setScenarioData(res);
       }
     } catch (err) {
       console.warn("Scenario analysis fetch failed:", err.message);
@@ -159,9 +216,10 @@ export default function ScenarioSimulator() {
     }
   }
 
+  // Initial scenario run on mount or mode change
   useEffect(() => {
-    analyzeScenario(BASELINE_STATE);
-  }, [isRealMode, operationalState]);
+    analyzeScenario(scenarioControls);
+  }, [isRealMode]);
 
   const resetToCentralBaseline = () => {
     setActivePreset("custom");
@@ -182,23 +240,27 @@ export default function ScenarioSimulator() {
     setScenarioControls((prev) => ({ ...prev, [field]: val }));
   };
 
-  // Extract Comparative Metrics
-  const curWait = currentData?.waiting_time?.waiting_time_minutes ?? null;
-  const scnWait = scenarioData?.waiting_time?.waiting_time_minutes ?? null;
+  // Extract Comparative Metrics (Baseline vs Scenario)
+  const curWait = baselineData?.waiting_time?.waiting_time_minutes !== undefined
+    ? Math.round(baselineData.waiting_time.waiting_time_minutes)
+    : null;
+  const scnWait = scenarioData?.waiting_time?.waiting_time_minutes !== undefined
+    ? Math.round(scenarioData.waiting_time.waiting_time_minutes)
+    : null;
   const diffWait = curWait !== null && scnWait !== null ? Math.round(scnWait - curWait) : null;
 
-  const curCrowd = currentData?.crowding_risk?.crowding_level ?? "N/A";
-  const scnCrowd = scenarioData?.crowding_risk?.crowding_level ?? "N/A";
+  const curCrowd = baselineData?.crowding_risk?.crowding_level ?? "--";
+  const scnCrowd = scenarioData?.crowding_risk?.crowding_level ?? "--";
 
-  const curScore = currentData?.crowding_risk?.crowding_score ?? null;
+  const curScore = baselineData?.crowding_risk?.crowding_score ?? null;
   const scnScore = scenarioData?.crowding_risk?.crowding_score ?? null;
   const diffScore = curScore !== null && scnScore !== null ? scnScore - curScore : null;
 
-  const curFlow = currentData?.flow_pattern?.pattern_name ?? "N/A";
-  const scnFlow = scenarioData?.flow_pattern?.pattern_name ?? "N/A";
+  const curFlow = baselineData?.flow_pattern?.pattern_name ?? "--";
+  const scnFlow = scenarioData?.flow_pattern?.pattern_name ?? "--";
 
-  const curSurge = currentData?.surge_detection?.status ?? "N/A";
-  const scnSurge = scenarioData?.surge_detection?.status ?? "N/A";
+  const curSurge = baselineData?.surge_detection?.status ?? "--";
+  const scnSurge = scenarioData?.surge_detection?.status ?? "--";
 
   const curArr = BASELINE_STATE.arrival_rate;
   const scnArr = scenarioControls.arrival_rate;

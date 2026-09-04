@@ -52,7 +52,7 @@ import EROperationsControlPanel from "../components/EROperationsControlPanel";
 import { useERContext } from "../../context/ERContext";
 
 function getOperationalPressure(data) {
-  if (!data) return { level: "MODERATE", tone: "amber", label: "MODERATE PRESSURE" };
+  if (!data) return { level: "--", tone: "blue", label: "PREDICTIONS PENDING" };
   const crowding = data.crowding_risk?.crowding_level || "MODERATE";
   const isSurge = data.surge_detection?.is_surge || false;
   const occupancy = data.occupancy_percent || 78;
@@ -70,7 +70,7 @@ function getOperationalPressure(data) {
 }
 
 function getModelConsensus(data) {
-  if (!data) return { consensus: "Mixed model signals", tone: "amber", signals: 1 };
+  if (!data) return { consensus: "--", tone: "amber", signals: 0 };
   let highSignals = 0;
   if (data.crowding_risk?.crowding_level === "HIGH" || data.crowding_risk?.crowding_level === "CRITICAL") highSignals++;
   if (data.waiting_time?.trend === "Increasing" || data.waiting_time?.waiting_time_minutes > 45) highSignals++;
@@ -87,7 +87,16 @@ function getModelConsensus(data) {
 }
 
 function getAttentionRequiredObservations(data) {
-  if (!data) return [];
+  if (!data) {
+    return [
+      {
+        id: "pending",
+        title: "Predictions Pending",
+        detail: "Set operational inputs below and click 'Update All Predictions' to run all 5 ML models.",
+        tone: "blue",
+      },
+    ];
+  }
   const obs = [];
 
   const waitMin = Math.round(data.waiting_time?.waiting_time_minutes || 0);
@@ -150,7 +159,7 @@ export default function Overview() {
           {
             id: "occupancy",
             label: "Current ER Occupancy",
-            value: "78%",
+            value: `${operationalState.occupancy_percent}%`,
             trend: "+6% vs. baseline",
             trendDirection: "up",
             tone: "blue",
@@ -158,7 +167,7 @@ export default function Overview() {
           {
             id: "waiting",
             label: "Patients Waiting",
-            value: "24",
+            value: `${operationalState.patients_waiting}`,
             trend: "5 pending triage",
             trendDirection: "up",
             tone: "teal",
@@ -186,7 +195,40 @@ export default function Overview() {
             onExplain: () => setActiveModal("crowding_risk"),
           },
         ]
-      : null
+      : [
+          {
+            id: "occupancy",
+            label: "Current ER Occupancy",
+            value: `${operationalState.occupancy_percent}%`,
+            trend: "Operational Status",
+            trendDirection: "up",
+            tone: "blue",
+          },
+          {
+            id: "waiting",
+            label: "Patients Waiting",
+            value: `${operationalState.patients_waiting}`,
+            trend: "Operational Queue",
+            trendDirection: "up",
+            tone: "teal",
+          },
+          {
+            id: "wait-time",
+            label: "Expected Wait Time",
+            value: "--",
+            trend: "Predictions Pending",
+            trendDirection: "down",
+            tone: "amber",
+          },
+          {
+            id: "crowding",
+            label: "Current Crowding Level",
+            value: "--",
+            trend: "Predictions Pending",
+            trendDirection: "down",
+            tone: "amber",
+          },
+        ]
     : MOCK_SUMMARY_CARDS.slice(0, 4);
 
   const secondaryDemandCards = isRealMode
@@ -209,7 +251,24 @@ export default function Overview() {
             tone: "purple",
           },
         ]
-      : null
+      : [
+          {
+            id: "velocity",
+            label: "Current Arrival Velocity",
+            value: "--",
+            trend: "Predictions Pending",
+            trendDirection: "down",
+            tone: "blue",
+          },
+          {
+            id: "horizon",
+            label: "Upcoming Volume (Next 3h)",
+            value: "--",
+            trend: "Predictions Pending",
+            trendDirection: "down",
+            tone: "purple",
+          },
+        ]
     : [
         {
           id: "velocity",
@@ -317,25 +376,25 @@ export default function Overview() {
           <div className="rounded-xl bg-black/25 p-3.5 backdrop-blur border border-white/15 shadow-sm">
             <p className="text-[11.5px] font-semibold text-white/80 uppercase">1. How busy is the ER?</p>
             <p className="mt-1 font-bold text-white text-[14.5px]">
-              {data ? `78% Occupancy • 24 Waiting` : "78% Occupancy"}
+              {`${operationalState.occupancy_percent}% Occupancy • ${operationalState.patients_waiting} Waiting`}
             </p>
           </div>
           <div className="rounded-xl bg-black/25 p-3.5 backdrop-blur border border-white/15 shadow-sm">
             <p className="text-[11.5px] font-semibold text-white/80 uppercase">2. Expected Wait Time?</p>
             <p className="mt-1 font-bold text-white text-[14.5px]">
-              {data ? `${Math.round(data.waiting_time.waiting_time_minutes)} min (${data.waiting_time.trend})` : "43 min"}
+              {data ? `${Math.round(data.waiting_time.waiting_time_minutes)} min (${data.waiting_time.trend})` : "--"}
             </p>
           </div>
           <div className="rounded-xl bg-black/25 p-3.5 backdrop-blur border border-white/15 shadow-sm">
             <p className="text-[11.5px] font-semibold text-white/80 uppercase">3. Demand Increasing?</p>
             <p className="mt-1 font-bold text-white text-[14.5px]">
-              {data ? `${data.forecast.trend} (+33.3% Velocity)` : "Increasing Trend"}
+              {data ? `${data.forecast.trend} (+33.3% Velocity)` : "--"}
             </p>
           </div>
           <div className="rounded-xl bg-black/25 p-3.5 backdrop-blur border border-white/15 shadow-sm">
             <p className="text-[11.5px] font-semibold text-white/80 uppercase">4. What needs attention?</p>
             <p className="mt-1 font-bold text-amber-tint text-[14.5px]">
-              {observations.length > 0 ? observations[0].title : "Queue & Arrival Strain"}
+              {data ? (observations.length > 0 ? observations[0].title : "Normal Operational Baseline") : "--"}
             </p>
           </div>
         </div>

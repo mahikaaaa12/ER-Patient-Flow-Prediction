@@ -239,7 +239,7 @@ function IntroState({ onAsk }) {
 import { useERContext } from "../../context/ERContext";
 
 export default function AIAssistant() {
-  const { operationalState } = useERContext();
+  const { operationalState, predictions } = useERContext();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sessionId, setSessionId] = useState(null);
@@ -383,7 +383,7 @@ export default function AIAssistant() {
                   <Percent className="h-3.5 w-3.5" />
                 </div>
                 <p className="text-[10.5px] font-semibold uppercase tracking-wider text-navy-soft">Occupancy</p>
-                <p className="mt-0.5 text-[15px] font-bold text-navy">78%</p>
+                <p className="mt-0.5 text-[15px] font-bold text-navy">{operationalState?.occupancy_percent || 78}%</p>
               </div>
 
               <div className="rounded-xl border border-border bg-bg p-3 text-center">
@@ -391,7 +391,7 @@ export default function AIAssistant() {
                   <Users className="h-3.5 w-3.5" />
                 </div>
                 <p className="text-[10.5px] font-semibold uppercase tracking-wider text-navy-soft">Waiting</p>
-                <p className="mt-0.5 text-[15px] font-bold text-navy">24 pts</p>
+                <p className="mt-0.5 text-[15px] font-bold text-navy">{operationalState?.patients_waiting || 24} pts</p>
               </div>
 
               <div className="rounded-xl border border-border bg-bg p-3 text-center">
@@ -399,7 +399,7 @@ export default function AIAssistant() {
                   <ShieldAlert className="h-3.5 w-3.5" />
                 </div>
                 <p className="text-[10.5px] font-semibold uppercase tracking-wider text-navy-soft">Crowding</p>
-                <p className="mt-0.5 text-[13px] font-bold text-red">CRITICAL</p>
+                <p className="mt-0.5 text-[13px] font-bold text-red">{predictions?.crowding_risk?.crowding_level || "--"}</p>
               </div>
             </div>
           </PageCard>

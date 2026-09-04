@@ -95,7 +95,12 @@ export default function FlowPatterns() {
           clusterId: data.cluster_id !== undefined && data.cluster_id !== null ? data.cluster_id : 1,
           description: getHumanDescription(data.pattern_name, data.description),
         }
-      : null
+      : {
+          name: "--",
+          confidence: "--",
+          clusterId: "--",
+          description: "Predictions pending. Click 'Update All Predictions' in Overview to run flow pattern clustering.",
+        }
     : {
         ...MOCK_CURRENT,
         confidence: parseConfidence(MOCK_CURRENT?.confidence) !== null
@@ -103,12 +108,7 @@ export default function FlowPatterns() {
           : null,
         clusterId: 1,
         description: getHumanDescription(MOCK_CURRENT?.name, MOCK_CURRENT?.description),
-      }) || {
-    name: MOCK_CURRENT?.name || "Normal Operational Baseline",
-    confidence: "92%",
-    clusterId: 1,
-    description: "Current ER demand is at a normal operational baseline.",
-  };
+      });
 
   const currentPoint = isRealMode
     ? data?.current_point

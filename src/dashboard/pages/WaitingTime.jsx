@@ -156,10 +156,10 @@ export default function WaitingTime() {
           isAvailable: true,
         }
       : {
-          currentAvg: "Prediction unavailable",
-          predicted1h: "Prediction unavailable",
-          predictedPeak: "Prediction unavailable",
-          trend: "Stable",
+          currentAvg: "--",
+          predicted1h: "--",
+          predictedPeak: "--",
+          trend: "--",
           model: "XGBoost Regressor v2",
           isAvailable: false,
         }

@@ -47,10 +47,18 @@ export function ERProvider({ children }) {
 
   const [predictions, setPredictions] = useState(() => {
     try {
-      const saved = localStorage.getItem("erflow_predictions");
+      const saved = sessionStorage.getItem("erflow_predictions");
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
+    }
+  });
+
+  const [hasRunPredictions, setHasRunPredictions] = useState(() => {
+    try {
+      return Boolean(sessionStorage.getItem("erflow_predictions"));
+    } catch {
+      return false;
     }
   });
 
@@ -96,6 +104,7 @@ export function ERProvider({ children }) {
 
       if (res) {
         setPredictions(res);
+        setHasRunPredictions(true);
         const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         setLastUpdated(now);
         setModelStatus({
@@ -107,12 +116,13 @@ export function ERProvider({ children }) {
         });
 
         try {
-          localStorage.setItem("erflow_predictions", JSON.stringify(res));
-          localStorage.setItem("erflow_last_updated", now);
+          sessionStorage.setItem("erflow_predictions", JSON.stringify(res));
+          sessionStorage.setItem("erflow_last_updated", now);
         } catch (e) {
           console.warn("Failed to persist predictions:", e);
         }
       } else {
+        setHasRunPredictions(true);
         setModelStatus({
           forecast: "demo",
           waiting_time: "demo",
@@ -140,16 +150,11 @@ export function ERProvider({ children }) {
     setOperationalState(DEFAULT_OPERATIONAL_STATE);
   };
 
-  useEffect(() => {
-    if (isRealMode && !predictions) {
-      updatePredictions(operationalState);
-    }
-  }, [isRealMode]);
-
   const value = {
     operationalState,
     setOperationalState,
     predictions,
+    hasRunPredictions,
     loading,
     error,
     lastUpdated,

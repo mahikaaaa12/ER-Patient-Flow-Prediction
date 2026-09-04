@@ -85,10 +85,23 @@ export default function PatientForecast() {
           dataSource: apiData.data_source || "REAL HISTORICAL DATA (ER_dataset.csv)",
           metrics: apiData.validation_metrics,
         }
-      : null
+      : {
+          peakTime: "--",
+          peakRate: "--",
+          trend: "--",
+          model: "2-Layer LSTM Neural Network",
+          dataSource: "REAL HISTORICAL DATA (ER_dataset.csv)",
+        }
     : MOCK_INSIGHTS;
 
-  const forecastCards = isRealMode ? apiData?.forecast_cards || null : MOCK_CARDS;
+  const forecastCards = isRealMode
+    ? apiData?.forecast_cards || [
+        { label: "3-Hour Horizon", value: "--", detail: "Predictions pending", icon: Clock3, tone: "blue" },
+        { label: "6-Hour Horizon", value: "--", detail: "Predictions pending", icon: Clock3, tone: "teal" },
+        { label: "12-Hour Horizon", value: "--", detail: "Predictions pending", icon: Clock3, tone: "purple" },
+        { label: "24-Hour Horizon", value: "--", detail: "Predictions pending", icon: Clock3, tone: "amber" },
+      ]
+    : MOCK_CARDS;
 
   const activeRangeData = isRealMode
     ? apiData?.series || null

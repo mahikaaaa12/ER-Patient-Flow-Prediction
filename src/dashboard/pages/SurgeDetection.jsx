@@ -54,8 +54,17 @@ export default function SurgeDetection() {
           detectedAt: data.detected_at,
           description: data.description,
         }
-      : null
-    : MOCK_STATUS) || MOCK_STATUS;
+      : {
+          status: "--",
+          severity: "--",
+          normalRateValue: "--",
+          currentRateValue: "--",
+          rateUnit: "pts/hr",
+          deviation: "--",
+          detectedAt: "--",
+          description: "Predictions pending. Click 'Update All Predictions' in Overview to run DBSCAN surge anomaly detection.",
+        }
+    : MOCK_STATUS);
 
   const modelName = isRealMode ? data?.model_name || "DBSCAN Density Anomaly" : MOCK_MODEL;
   const timelineData = data?.timeline || DEFAULT_TIMELINE;

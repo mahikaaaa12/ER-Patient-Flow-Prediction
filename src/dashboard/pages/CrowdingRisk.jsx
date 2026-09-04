@@ -208,8 +208,8 @@ export default function CrowdingRisk() {
           score: data.crowding_score,
           window: data.expected_window || "Next 3 Hours",
         }
-      : null
-    : MOCK_SUMMARY) || { level: "MODERATE", score: 45, window: "Next 3 Hours" };
+      : { level: "--", score: "--", window: "Predictions Pending" }
+    : MOCK_SUMMARY);
 
   const modelName = isRealMode ? data?.model_name || "XGBoost Classifier" : MOCK_MODEL;
 
