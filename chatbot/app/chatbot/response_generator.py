@@ -105,6 +105,15 @@ class ResponseGenerator:
                 "admission records, seasonal trends, day-of-week patterns, and triage acuity data."
             )
 
+        if intent_enum == Intent.KNOWLEDGE_QUERY:
+            rag_answer = (context or {}).get("rag_answer")
+            if rag_answer:
+                return rag_answer
+            return (
+                "📚 **Hospital Knowledge Base**: Information regarding ER triage protocols, crowding policies, "
+                "and operational procedures is available in the knowledge base."
+            )
+
         if intent_enum == Intent.UNKNOWN:
             return (
                 "I'm sorry, I couldn't quite understand your request. "
