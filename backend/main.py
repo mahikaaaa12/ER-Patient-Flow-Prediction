@@ -5,6 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from datetime import datetime, timezone
+import sys
+from pathlib import Path
+
+_ROOT_DIR = Path(__file__).resolve().parent.parent
+_CHATBOT_DIR = _ROOT_DIR / "chatbot"
+if str(_CHATBOT_DIR) not in sys.path:
+    sys.path.insert(0, str(_CHATBOT_DIR))
+
 from .services.artifact_loader import artifact_loader
 from .services.monitoring_service import monitoring_service
 from .routers import (
@@ -13,6 +21,13 @@ from .routers import (
     deep_learning_router,
     overview_router,
 )
+
+try:
+    from app.api.chat_routes import router as chat_router
+    from app.ml_service.model_adapters import load_real_models
+except ImportError:
+    chat_router = None
+    load_real_models = None
 
 # Configure logging
 logging.basicConfig(
@@ -24,11 +39,13 @@ logger = logging.getLogger("erflow.backend")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load ML artifacts on application startup."""
+    """Load ML artifacts and chatbot model adapters on application startup."""
     logger.info("Initializing ERFlow ML Inference Backend...")
     try:
         artifact_loader.load_all()
-        logger.info("All ML model artifacts loaded and verified.")
+        if callable(load_real_models):
+            load_real_models()
+        logger.info("All ML model artifacts and chatbot adapters loaded and verified.")
     except Exception as e:
         logger.error(f"Critical error loading model artifacts during startup: {e}", exc_info=True)
         raise RuntimeError(f"Model initialization failed: {e}")
@@ -88,6 +105,8 @@ app.include_router(supervised_router)
 app.include_router(unsupervised_router)
 app.include_router(deep_learning_router)
 app.include_router(overview_router)
+if chat_router:
+    app.include_router(chat_router, prefix="/api")
 
 
 @app.exception_handler(Exception)

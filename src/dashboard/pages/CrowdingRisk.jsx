@@ -26,6 +26,16 @@ import {
   CROWDING_MODEL as MOCK_MODEL,
 } from "../mockData";
 
+const DEFAULT_TIMELINE = [
+  { time: "3 PM", level: "MODERATE" },
+  { time: "4 PM", level: "MODERATE" },
+  { time: "5 PM", level: "HIGH" },
+  { time: "6 PM", level: "HIGH" },
+  { time: "7 PM", level: "CRITICAL" },
+  { time: "8 PM", level: "HIGH" },
+  { time: "9 PM", level: "MODERATE" },
+];
+
 function TopStatusArea({ summary, data, operationalState }) {
   const level = summary.level || "CRITICAL";
   const score = summary.score || 25;
@@ -348,13 +358,13 @@ export default function CrowdingRisk() {
           />
           <MetricCard
             label="Staffed Doctors"
-            value={operationalState.doctors_on_duty || 4}
+            value={operationalState.available_doctors || 4}
             icon={UserCheck}
             tone="navy"
           />
           <MetricCard
             label="Staffed Nurses"
-            value={operationalState.nurses_on_duty || 10}
+            value={operationalState.available_nurses || 10}
             icon={UserCheck}
             tone="navy"
           />
@@ -422,12 +432,4 @@ export default function CrowdingRisk() {
   );
 }
 
-const DEFAULT_TIMELINE = [
-  { time: "3 PM", level: "MODERATE" },
-  { time: "4 PM", level: "MODERATE" },
-  { time: "5 PM", level: "HIGH" },
-  { time: "6 PM", level: "HIGH" },
-  { time: "7 PM", level: "CRITICAL" },
-  { time: "8 PM", level: "HIGH" },
-  { time: "9 PM", level: "MODERATE" },
-];
+

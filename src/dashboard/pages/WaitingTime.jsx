@@ -172,8 +172,20 @@ export default function WaitingTime() {
         isAvailable: true,
       };
 
+const DEFAULT_TREND = [
+  { t: "12 AM", value: 22, kind: "observed" },
+  { t: "3 AM", value: 18, kind: "observed" },
+  { t: "6 AM", value: 24, kind: "observed" },
+  { t: "9 AM", value: 33, kind: "observed" },
+  { t: "12 PM", value: 37, kind: "observed" },
+  { t: "3 PM", value: 34, kind: "observed" },
+  { t: "6 PM", value: 44, kind: "observed" },
+  { t: "9 PM (proj.)", value: 60, kind: "forecast" },
+];
+
   const trendIsIncreasing = waitingStatus.trend === "Increasing";
-  const trendSeries = data?.hourly_trend || [];
+  const trendIsDecreasing = waitingStatus.trend === "Decreasing";
+  const trendSeries = (data?.hourly_trend && data.hourly_trend.length > 0) ? data.hourly_trend : DEFAULT_TREND;
 
   return (
     <div className="flex flex-col gap-6">
@@ -405,13 +417,4 @@ export default function WaitingTime() {
   );
 }
 
-const DEFAULT_TREND = [
-  { t: "12 AM", value: 22, kind: "observed" },
-  { t: "3 AM", value: 18, kind: "observed" },
-  { t: "6 AM", value: 24, kind: "observed" },
-  { t: "9 AM", value: 33, kind: "observed" },
-  { t: "12 PM", value: 37, kind: "observed" },
-  { t: "3 PM", value: 34, kind: "observed" },
-  { t: "6 PM", value: 44, kind: "observed" },
-  { t: "9 PM (proj.)", value: 60, kind: "forecast" },
-];
+

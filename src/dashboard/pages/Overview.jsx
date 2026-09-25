@@ -322,7 +322,7 @@ export default function Overview() {
           </div>
           <button
             type="button"
-            onClick={loadData}
+            onClick={() => updatePredictions()}
             className="flex items-center gap-1 font-semibold underline hover:text-red-dark"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Retry

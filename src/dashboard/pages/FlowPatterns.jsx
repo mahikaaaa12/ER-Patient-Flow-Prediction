@@ -20,6 +20,8 @@ import {
 } from "../mockData";
 import { useMode } from "../../context/ModeContext";
 
+const MOCK_DISTRIBUTION = MOCK_DIST;
+
 const DOT_TONE = {
   green: "bg-green",
   amber: "bg-amber",
@@ -237,4 +239,4 @@ export default function FlowPatterns() {
   );
 }
 
-const MOCK_DISTRIBUTION = MOCK_DIST;
+

@@ -85,13 +85,15 @@ class IntentDetector:
 
     # 7. PATIENT VOLUME PATTERNS
     PATIENT_VOLUME_PATTERNS = [
+        (r"what\s*is\s*(the\s*)?(current\s*)?patient\s*arrival\s*rate", 0.95),
+        (r"arrival\s*rate", 0.95),
         (r"is\s*demand\s*(increasing|growing|rising)", 0.95),
         (r"what\s*will\s*patient\s*arrivals\s*look\s*like", 0.95),
         (r"how\s*many\s*patients(\s*are)?\s*(expected|predicted)", 0.95),
         (r"expected\s*(patient|arrival|admission)\s*(count|volume|rate)", 0.94),
         (r"patient\s*volume(\s*forecast)?", 0.92),
         (r"how\s*many\s*(arrivals|admissions|patients)", 0.92),
-        (r"patient\s*arrivals", 0.90),
+        (r"patient\s*arrivals?", 0.90),
         (r"admissions\s*forecast", 0.90),
         (r"volume\s*forecast", 0.88),
     ]
@@ -142,6 +144,9 @@ class IntentDetector:
 
     # 11. GENERAL STATUS PATTERNS
     GENERAL_STATUS_PATTERNS = [
+        (r"what\s*(should|needs|do)\s*(the\s*)?(er|ed|emergency\s*room)?\s*(staff\s*)?(pay\s*)?attention\s*(to)?", 0.95),
+        (r"what\s*needs\s*attention", 0.95),
+        (r"attention\s*(required|needed)", 0.95),
         (r"how\s*is\s*(the\s*)?(er|ed|emergency\s*room)\s*(doing|operating)\s*(right\s*now)?", 0.95),
         (r"give\s*me\s*a\s*summary\s*of\s*(the\s*)?(current\s*)?(er|ed)", 0.95),
         (r"what\s*is\s*causing\s*(the\s*)?current\s*pressure", 0.95),

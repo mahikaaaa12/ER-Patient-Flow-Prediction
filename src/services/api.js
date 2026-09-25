@@ -13,16 +13,21 @@ const CHATBOT_URL = APP_CONFIG.chatbotApiUrl;
  */
 async function fetchApi(endpoint, options = {}) {
   const url = `${BASE_URL}${endpoint}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
   const config = {
     headers: {
       "Content-Type": "application/json",
       ...options.headers,
     },
+    signal: controller.signal,
     ...options,
   };
 
   try {
     const res = await fetch(url, config);
+    clearTimeout(timeoutId);
     if (!res.ok) {
       let errorMessage = `HTTP ${res.status} ${res.statusText}`;
       try {
@@ -35,6 +40,10 @@ async function fetchApi(endpoint, options = {}) {
     }
     return await res.json();
   } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === "AbortError") {
+      throw new Error(`Request to ML Inference Engine timed out after 15s at ${BASE_URL || "backend"}.`);
+    }
     if (error.name === "TypeError" && error.message.includes("fetch")) {
       const target = BASE_URL || "configured backend URL";
       throw new Error(`Unable to connect to ERFlow ML Inference Engine at ${target}. Please verify backend service status.`);
@@ -136,24 +145,43 @@ export const erflowApi = {
    */
   async sendChatMessage(message, sessionId, context) {
     const url = `${CHATBOT_URL}/api/chat`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message,
-        session_id: sessionId || null,
-        context: context || {},
-      }),
-    });
-    if (!res.ok) {
-      let errText = `HTTP ${res.status}`;
-      try {
-        const errJson = await res.json();
-        errText = errJson.detail || errText;
-      } catch {}
-      throw new Error(errText);
+    const payload = {
+      message,
+      session_id: sessionId || null,
+      context: context || {},
+    };
+
+    console.log("[CHATBOT] User message:", message);
+    console.log("[CHATBOT] Request URL:", url);
+    console.log("[CHATBOT] Request payload:", payload);
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      console.log("[CHATBOT] Response status:", res.status, res.statusText);
+
+      if (!res.ok) {
+        let errText = `HTTP ${res.status} ${res.statusText}`;
+        try {
+          const errJson = await res.json();
+          console.error("[CHATBOT] Response body error:", errJson);
+          errText = errJson.detail || errJson.message || errText;
+        } catch {
+          console.error("[CHATBOT] Could not parse error response body JSON.");
+        }
+        throw new Error(errText);
+      }
+      const data = await res.json();
+      console.log("[CHATBOT] Response data payload:", data);
+      return data;
+    } catch (error) {
+      console.error("[CHATBOT] Backend service error:", error.message);
+      throw error;
     }
-    return await res.json();
   },
 
   /**

@@ -18,6 +18,15 @@ import {
 
 import { useMode } from "../../context/ModeContext";
 
+const DEFAULT_TIMELINE = [
+  { t: "3 PM", expected: 13, actual: 14, anomaly: false },
+  { t: "4 PM", expected: 14, actual: 15, anomaly: false },
+  { t: "5 PM", expected: 14, actual: 18, anomaly: false },
+  { t: "6 PM", expected: 15, actual: 27, anomaly: true },
+  { t: "6:30 PM", expected: 15, actual: 32, anomaly: true },
+  { t: "7 PM (proj.)", expected: 14, actual: 29, anomaly: true },
+];
+
 const SEVERITY_TONE = { High: "red", Moderate: "amber", Low: "green" };
 
 function SurgeEventCard({ when, severity, rate }) {
@@ -204,11 +213,4 @@ export default function SurgeDetection() {
   );
 }
 
-const DEFAULT_TIMELINE = [
-  { t: "3 PM", expected: 13, actual: 14, anomaly: false },
-  { t: "4 PM", expected: 14, actual: 15, anomaly: false },
-  { t: "5 PM", expected: 14, actual: 18, anomaly: false },
-  { t: "6 PM", expected: 15, actual: 27, anomaly: true },
-  { t: "6:30 PM", expected: 15, actual: 32, anomaly: true },
-  { t: "7 PM (proj.)", expected: 14, actual: 29, anomaly: true },
-];
+
