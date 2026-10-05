@@ -92,8 +92,8 @@ export default function ModelArchitecture() {
         <div className="mt-14 hidden lg:block">
           <div className="flex items-stretch gap-3 xl:gap-4">
             {/* ER Data source */}
-            <div className="flex w-36 shrink-0 flex-col items-center justify-center gap-3 self-center rounded-2xl border border-border bg-navy p-5 text-center shadow-lift">
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white">
+            <div className="flex w-36 shrink-0 flex-col items-center justify-center gap-3 self-center rounded-lg border border-border bg-navy p-4 text-center shadow-soft">
+              <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white/10 text-white">
                 <Database className="h-5 w-5" strokeWidth={2.25} aria-hidden="true" />
               </span>
               <p className="text-[14px] font-semibold text-white">Hospital ER Data</p>
@@ -117,12 +117,12 @@ export default function ModelArchitecture() {
               <ArrowRight className="h-5 w-5" strokeWidth={2} />
             </div>
 
-            {/* Convergence: AI Operations Assistant */}
-            <div className="flex w-40 shrink-0 flex-col items-center justify-center gap-3 self-center rounded-2xl border border-amber/30 bg-amber-tint p-5 text-center shadow-lift">
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber text-white">
+            {/* Convergence: Operations Assistant */}
+            <div className="flex w-40 shrink-0 flex-col items-center justify-center gap-3 self-center rounded-lg border border-amber/30 bg-amber-tint p-4 text-center shadow-soft">
+              <span className="flex h-10 w-10 items-center justify-center rounded-md bg-amber text-white">
                 <Bot className="h-5 w-5" strokeWidth={2.25} aria-hidden="true" />
               </span>
-              <p className="text-[14px] font-semibold text-navy">AI Operations Assistant</p>
+              <p className="text-[14px] font-semibold text-navy">Operations Assistant</p>
               <p className="text-[11px] leading-snug text-navy-muted">
                 Unifies every model output into one summary
               </p>
@@ -133,8 +133,8 @@ export default function ModelArchitecture() {
             </div>
 
             {/* Dashboard target */}
-            <div className="flex w-40 shrink-0 flex-col items-center justify-center gap-3 self-center rounded-2xl border border-blue/30 bg-blue-tint p-5 text-center shadow-lift">
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue text-white">
+            <div className="flex w-40 shrink-0 flex-col items-center justify-center gap-3 self-center rounded-lg border border-blue/30 bg-blue-tint p-4 text-center shadow-soft">
+              <span className="flex h-10 w-10 items-center justify-center rounded-md bg-blue text-white">
                 <LayoutDashboard className="h-5 w-5" strokeWidth={2.25} aria-hidden="true" />
               </span>
               <p className="text-[14px] font-semibold text-navy">ER Operations Dashboard</p>
@@ -147,8 +147,8 @@ export default function ModelArchitecture() {
 
         {/* ===== Mobile: simple vertical flow ===== */}
         <div className="mt-12 flex flex-col items-center lg:hidden">
-          <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl border border-border bg-navy p-5 text-center shadow-lift">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white">
+          <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-lg border border-border bg-navy p-4 text-center shadow-soft">
+            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white/10 text-white">
               <Database className="h-5 w-5" strokeWidth={2.25} aria-hidden="true" />
             </span>
             <p className="text-[15px] font-semibold text-white">Hospital ER Data</p>
@@ -174,9 +174,9 @@ export default function ModelArchitecture() {
                     {group.nodes.map(({ icon: Icon, title }) => (
                       <div
                         key={title}
-                        className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4 shadow-soft"
+                        className="flex items-center gap-3 rounded-md border border-border bg-surface p-4 shadow-soft"
                       >
-                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${accent.bg} ${accent.text}`}>
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${accent.bg} ${accent.text}`}>
                           <Icon className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
                         </span>
                         <p className="text-[14px] font-semibold leading-snug text-navy">{title}</p>
@@ -190,11 +190,11 @@ export default function ModelArchitecture() {
 
           <div className="my-1 h-8 w-px bg-border-strong" aria-hidden="true" />
 
-          <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl border border-amber/30 bg-amber-tint p-5 text-center shadow-lift">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber text-white">
+          <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-lg border border-amber/30 bg-amber-tint p-4 text-center shadow-soft">
+            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-amber text-white">
               <Bot className="h-5 w-5" strokeWidth={2.25} aria-hidden="true" />
             </span>
-            <p className="text-[15px] font-semibold text-navy">AI Operations Assistant</p>
+            <p className="text-[15px] font-semibold text-navy">Operations Assistant</p>
             <p className="text-[12px] leading-snug text-navy-muted">
               Unifies every model output into one summary
             </p>
@@ -202,8 +202,8 @@ export default function ModelArchitecture() {
 
           <div className="my-1 h-8 w-px bg-border-strong" aria-hidden="true" />
 
-          <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl border border-blue/30 bg-blue-tint p-5 text-center shadow-lift">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue text-white">
+          <div className="flex w-full max-w-sm flex-col items-center gap-3 rounded-lg border border-blue/30 bg-blue-tint p-4 text-center shadow-soft">
+            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-blue text-white">
               <LayoutDashboard className="h-5 w-5" strokeWidth={2.25} aria-hidden="true" />
             </span>
             <p className="text-[15px] font-semibold text-navy">ER Operations Dashboard</p>

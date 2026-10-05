@@ -124,14 +124,37 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
+@app.get("/api/ready", tags=["System"])
+async def readiness_check():
+    """Lightweight readiness probe verifying ML model availability for zero-cold-start requests."""
+    is_ready = bool(artifact_loader.is_loaded)
+    if not is_ready:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "ready": False,
+                "status": "initializing",
+                "message": "ML inference engines are currently loading into memory."
+            }
+        )
+    return {
+        "ready": True,
+        "status": "ready",
+        "message": "ML inference engines are fully loaded and operational."
+    }
+
+
 @app.get("/api/health", tags=["System"])
 async def health_check():
     """Verify backend health and model loading status."""
+    is_ready = bool(artifact_loader.is_loaded)
     return {
-        "status": "healthy" if artifact_loader.is_loaded else "degraded",
+        "ready": is_ready,
+        "status": "healthy" if is_ready else "initializing",
         "service": "ERFlow ML Inference Engine",
-        "ml_model_available": artifact_loader.is_loaded,
-        "artifacts_loaded": artifact_loader.is_loaded,
+        "ml_model_available": is_ready,
+        "artifacts_loaded": is_ready,
+
         "registered_models": [
             "waiting_time_model",
             "crowding_model",

@@ -1,4 +1,4 @@
-import { ArrowRight, LayoutDashboard, PlayCircle, Sparkles } from "lucide-react";
+import { Activity, ArrowRight, LayoutDashboard, PlayCircle, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import DashboardPreview from "./DashboardPreview";
 
@@ -25,16 +25,16 @@ export default function Hero() {
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-10">
           {/* Left column */}
           <div className="max-w-xl">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-[13px] font-medium text-blue shadow-soft">
-              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.25} />
-              AI-Powered Emergency Department Intelligence
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-[13px] font-semibold text-blue shadow-soft">
+              <Activity className="h-3.5 w-3.5" strokeWidth={2.25} />
+              Emergency Department Operations & Clinical Command Platform
             </span>
 
-            <h1 className="mt-5 text-4xl font-semibold leading-[1.1] tracking-tight text-navy sm:text-5xl lg:text-[3.25rem]">
+            <h1 className="mt-5 text-3xl font-bold leading-[1.15] tracking-tight text-navy sm:text-4xl lg:text-[2.75rem]">
               Predict Patient Demand Before the ER Gets Overwhelmed.
             </h1>
 
-            <p className="mt-5 text-[17px] leading-relaxed text-navy-muted sm:text-lg">
+            <p className="mt-5 text-[16px] leading-relaxed text-navy-muted sm:text-lg">
               Forecast patient arrivals, estimate waiting times, identify crowding risks,
               and detect unexpected patient surges before demand reaches critical levels.
             </p>
@@ -42,14 +42,14 @@ export default function Hero() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <a
                 href="#platform"
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue px-5 py-3 text-[15px] font-semibold text-white shadow-soft transition-colors hover:bg-blue-dark"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-blue px-5 py-2.5 text-[14.5px] font-semibold text-white shadow-soft transition-colors hover:bg-blue-dark"
               >
                 Explore Platform
                 <ArrowRight className="h-4 w-4" strokeWidth={2.25} />
               </a>
               <a
                 href="#how-it-works"
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface px-5 py-3 text-[15px] font-semibold text-navy transition-colors hover:border-border-strong hover:bg-bg"
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-surface px-5 py-2.5 text-[14.5px] font-semibold text-navy transition-colors hover:border-border-strong hover:bg-bg"
               >
                 <PlayCircle className="h-4 w-4" strokeWidth={2.25} />
                 See How It Works
@@ -59,7 +59,7 @@ export default function Hero() {
             <div className="mt-7 flex items-center gap-3">
               <div className="vital-rule w-8 sm:w-10" />
               <p className="text-[13px] font-medium text-navy-soft">
-                Powered by Machine Learning, Deep Learning and Predictive Analytics
+                Multi-Model Machine Learning Telemetry & Real-Time Operational Analytics
               </p>
             </div>
           </div>

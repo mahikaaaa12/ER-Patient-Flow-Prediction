@@ -32,20 +32,20 @@ export default function HowItWorks() {
     <section id="how-it-works" className="relative border-t border-border bg-surface">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg px-3 py-1.5 text-[13px] font-medium text-blue shadow-soft">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg px-3 py-1.5 text-[13px] font-semibold text-blue shadow-soft">
             How It Works
           </span>
-          <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-tight text-navy sm:text-4xl">
+          <h2 className="mt-5 text-3xl font-bold leading-tight tracking-tight text-navy sm:text-4xl">
             A Continuous Cycle From Data to Decision
           </h2>
-          <p className="mt-4 text-[17px] leading-relaxed text-navy-muted">
+          <p className="mt-4 text-[16px] leading-relaxed text-navy-muted">
             Four steps run continuously in the background, turning raw ER data into
             operational guidance your team can act on before demand peaks.
           </p>
         </div>
 
         {/* ===== Desktop: connected horizontal timeline ===== */}
-        <div className="relative mt-16 hidden lg:block">
+        <div className="relative mt-14 hidden lg:block">
           <div
             className="absolute left-0 right-0 top-[38px] h-px bg-border-strong"
             aria-hidden="true"
@@ -53,9 +53,9 @@ export default function HowItWorks() {
           <div className="grid grid-cols-4 gap-6">
             {STEPS.map(({ number, icon: Icon, title, description }) => (
               <div key={number} className="relative flex flex-col items-center text-center">
-                <div className="relative z-10 flex h-[76px] w-[76px] items-center justify-center rounded-2xl border border-border bg-navy shadow-lift">
+                <div className="relative z-10 flex h-[70px] w-[70px] items-center justify-center rounded-lg border border-border bg-navy shadow-soft">
                   <Icon className="h-7 w-7 text-white" strokeWidth={2} aria-hidden="true" />
-                  <span className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-surface font-mono text-[11px] font-semibold text-blue shadow-soft">
+                  <span className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-md border border-border bg-surface font-mono text-[11px] font-semibold text-blue shadow-soft">
                     {number}
                   </span>
                 </div>

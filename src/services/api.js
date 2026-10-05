@@ -1,6 +1,7 @@
 /**
- * ERFlow API Client Service
- * Connects React frontend to FastAPI ML Inference Backend.
+ * ERFlow Centralized API Client Service
+ * Connects React frontend to FastAPI ML Inference Backend with non-blocking readiness probing,
+ * bounded exponential backoff retries, and high-reliability error handling.
  */
 
 import { APP_CONFIG } from "../config/appConfig";
@@ -8,27 +9,83 @@ import { APP_CONFIG } from "../config/appConfig";
 const BASE_URL = APP_CONFIG.apiBaseUrl;
 const CHATBOT_URL = APP_CONFIG.chatbotApiUrl;
 
+const RETRYABLE_STATUS_CODES = [502, 503, 504, 530];
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+let isBackendVerifiedReady = false;
+
 /**
- * Helper to handle fetch requests with error parsing and fallback support.
+ * Lightweight readiness probe checking /api/ready endpoint with exponential backoff.
  */
-async function fetchApi(endpoint, options = {}) {
+async function checkReadiness(maxProbeRetries = 2) {
+  const url = `${BASE_URL}/api/ready`;
+  let attempt = 0;
+
+  while (attempt <= maxProbeRetries) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timer);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ready) {
+          isBackendVerifiedReady = true;
+          return data;
+        }
+      }
+    } catch {
+      // Backend cold start in progress
+    }
+    attempt++;
+    if (attempt <= maxProbeRetries) {
+      await delay(1000 * Math.pow(1.5, attempt));
+    }
+  }
+  return { ready: false, status: "initializing" };
+}
+
+/**
+ * Centralized inference request runner handling retries, timeouts, and readiness checks.
+ */
+async function fetchWithReliability(endpoint, options = {}, maxRetries = 2, timeoutMs = 25000) {
   const url = `${BASE_URL}${endpoint}`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  let attempt = 0;
 
-  const config = {
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-    signal: controller.signal,
-    ...options,
-  };
+  // Probe backend readiness if not verified recently
+  if (!isBackendVerifiedReady && endpoint !== "/api/ready" && endpoint !== "/api/health") {
+    const probe = await checkReadiness(1);
+    if (probe.ready) {
+      isBackendVerifiedReady = true;
+    }
+  }
 
-  try {
-    const res = await fetch(url, config);
-    clearTimeout(timeoutId);
-    if (!res.ok) {
+  while (attempt <= maxRetries) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    const config = {
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      signal: controller.signal,
+      ...options,
+    };
+
+    try {
+      const res = await fetch(url, config);
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        isBackendVerifiedReady = true;
+        return await res.json();
+      }
+
       let errorMessage = `HTTP ${res.status} ${res.statusText}`;
       try {
         const errJson = await res.json();
@@ -36,19 +93,61 @@ async function fetchApi(endpoint, options = {}) {
       } catch {
         // Fallback to HTTP status message
       }
-      throw new Error(errorMessage);
+
+      const error = new Error(errorMessage);
+      error.status = res.status;
+
+      // Do NOT retry deterministic validation (400, 422) or authentication errors
+      if (!RETRYABLE_STATUS_CODES.includes(res.status) || attempt >= maxRetries) {
+        throw error;
+      }
+
+      console.warn(`[ERFlow API] Retrying request to ${endpoint} (attempt ${attempt + 1}/${maxRetries}): ${errorMessage}`);
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      // Non-retryable client errors throw immediately
+      if (error.status && !RETRYABLE_STATUS_CODES.includes(error.status)) {
+        throw error;
+      }
+
+      const isAbort = error.name === "AbortError";
+      const isNetworkErr = error.name === "TypeError" && error.message.includes("fetch");
+
+      if (attempt >= maxRetries) {
+        if (isAbort) {
+          const sec = Math.round(timeoutMs / 1000);
+          const err = new Error("Prediction request is taking longer than expected");
+          err.isTimeout = true;
+          err.status = 504;
+          err.endpoint = endpoint;
+          err.requestId = `req-${Math.random().toString(36).substring(2, 9)}`;
+          err.technicalMessage = `AbortError: Request to ML Inference Engine timed out after ${sec}s at ${BASE_URL || "configured backend URL"}.`;
+          throw err;
+        }
+        if (isNetworkErr) {
+          const target = BASE_URL || "configured backend URL";
+          const err = new Error("Prediction services temporarily unavailable");
+          err.isNetworkError = true;
+          err.status = 503;
+          err.endpoint = endpoint;
+          err.requestId = `req-${Math.random().toString(36).substring(2, 9)}`;
+          err.technicalMessage = `TypeError: Unable to connect to ERFlow ML Inference Engine at ${target}. Please verify backend service status.`;
+          throw err;
+        }
+        error.endpoint = endpoint;
+        error.requestId = `req-${Math.random().toString(36).substring(2, 9)}`;
+        error.technicalMessage = error.message;
+        error.message = "Prediction services temporarily unavailable";
+        throw error;
+      }
+
+      console.warn(`[ERFlow API] Transient network/server error at ${endpoint} (attempt ${attempt + 1}/${maxRetries}):`, error.message);
     }
-    return await res.json();
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error.name === "AbortError") {
-      throw new Error(`Request to ML Inference Engine timed out after 15s at ${BASE_URL || "backend"}.`);
-    }
-    if (error.name === "TypeError" && error.message.includes("fetch")) {
-      const target = BASE_URL || "configured backend URL";
-      throw new Error(`Unable to connect to ERFlow ML Inference Engine at ${target}. Please verify backend service status.`);
-    }
-    throw error;
+
+    attempt++;
+    const backoffMs = 600 * Math.pow(1.8, attempt) + Math.random() * 300;
+    await delay(backoffMs);
   }
 }
 
@@ -57,7 +156,14 @@ export const erflowApi = {
    * System health check
    */
   async checkHealth() {
-    return fetchApi("/api/health");
+    return fetchWithReliability("/api/health", { method: "GET" }, 1, 8000);
+  },
+
+  /**
+   * System readiness probe
+   */
+  async checkReadiness() {
+    return checkReadiness(2);
   },
 
   /**
@@ -65,62 +171,62 @@ export const erflowApi = {
    */
   async getDashboardOverview(hospitalState) {
     if (hospitalState) {
-      return fetchApi("/api/dashboard/overview", {
+      return fetchWithReliability("/api/dashboard/overview", {
         method: "POST",
         body: JSON.stringify(hospitalState),
-      });
+      }, 2, 30000);
     }
-    return fetchApi("/api/dashboard/overview", { method: "GET" });
+    return fetchWithReliability("/api/dashboard/overview", { method: "GET" }, 2, 30000);
   },
 
   /**
    * Patient Arrival Forecast (Deep Learning LSTM)
    */
   async getPatientForecast(hospitalState) {
-    return fetchApi("/api/predict/deep-learning", {
+    return fetchWithReliability("/api/predict/deep-learning", {
       method: "POST",
       body: JSON.stringify(hospitalState || {}),
-    });
+    }, 2, 20000);
   },
 
   /**
    * Waiting Time Prediction (Supervised XGBoost Regressor)
    */
   async getWaitingTime(hospitalState) {
-    return fetchApi("/api/predict/waiting-time", {
+    return fetchWithReliability("/api/predict/waiting-time", {
       method: "POST",
       body: JSON.stringify(hospitalState || {}),
-    });
+    }, 2, 20000);
   },
 
   /**
    * Crowding Risk Prediction (Supervised XGBoost Classifier)
    */
   async getCrowdingRisk(hospitalState) {
-    return fetchApi("/api/predict/crowding-risk", {
+    return fetchWithReliability("/api/predict/crowding-risk", {
       method: "POST",
       body: JSON.stringify(hospitalState || {}),
-    });
+    }, 2, 20000);
   },
 
   /**
    * Flow Pattern Discovery (Unsupervised K-Means + PCA)
    */
   async getFlowPatterns(hospitalState) {
-    return fetchApi("/api/patterns/flow", {
+    return fetchWithReliability("/api/patterns/flow", {
       method: "POST",
       body: JSON.stringify(hospitalState || {}),
-    });
+    }, 2, 20000);
   },
 
   /**
    * Surge Anomaly Detection (Unsupervised DBSCAN)
    */
   async getSurgeDetection(hospitalState) {
-    return fetchApi("/api/surge/detect", {
+    return fetchWithReliability("/api/surge/detect", {
       method: "POST",
       body: JSON.stringify(hospitalState || {}),
-    });
+    }, 2, 20000);
   },
 
   async detectSurge(hospitalState) {
@@ -131,13 +237,13 @@ export const erflowApi = {
    * AI Assistant Query Handler
    */
   async queryAIAssistant(question, hospitalState) {
-    return fetchApi("/api/ai-assistant/query", {
+    return fetchWithReliability("/api/ai-assistant/query", {
       method: "POST",
       body: JSON.stringify({
         question,
         hospital_state: hospitalState || null,
       }),
-    });
+    }, 2, 25000);
   },
 
   /**
@@ -188,6 +294,6 @@ export const erflowApi = {
    * Model Monitoring & Telemetry Report
    */
   async getMonitoringReport() {
-    return fetchApi("/api/monitoring");
+    return fetchWithReliability("/api/monitoring", { method: "GET" }, 1, 10000);
   },
 };

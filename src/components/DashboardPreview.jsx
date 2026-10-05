@@ -112,7 +112,7 @@ export default function DashboardPreview() {
   return (
     <div
       id="dashboard"
-      className="relative w-full max-w-md rounded-2xl border border-border bg-surface shadow-lift lg:max-w-lg"
+      className="relative w-full max-w-md rounded-lg border border-border bg-surface shadow-soft lg:max-w-lg"
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
@@ -125,9 +125,9 @@ export default function DashboardPreview() {
           </p>
         </div>
         <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold ${status.bg} ${status.text}`}
+          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold border ${status.bg} ${status.text}`}
         >
-          <span className={`h-1.5 w-1.5 rounded-full animate-soft-pulse ${status.dot}`} />
+          <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
           {DASHBOARD_DATA.status}
         </span>
       </div>
@@ -135,7 +135,7 @@ export default function DashboardPreview() {
       <div className="p-5 space-y-5">
         {/* Occupancy + Wait row */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-border bg-bg p-4">
+          <div className="rounded-md border border-border bg-bg p-4">
             <div className="flex items-center gap-1.5 text-navy-soft">
               <Users className="h-3.5 w-3.5" />
               <span className="text-[12px] font-medium uppercase tracking-wide">

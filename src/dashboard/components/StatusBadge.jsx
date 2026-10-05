@@ -1,12 +1,12 @@
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
 
 const TONE_CLASS = {
-  navy: "bg-navy/5 text-navy",
-  blue: "bg-blue-tint text-blue",
-  teal: "bg-teal-tint text-teal",
-  green: "bg-green-tint text-green",
-  amber: "bg-amber-tint text-amber",
-  red: "bg-red-tint text-red",
+  navy: "border border-border bg-bg text-navy-muted",
+  blue: "border border-blue/30 bg-blue-tint text-blue",
+  teal: "border border-teal/30 bg-teal-tint text-teal",
+  green: "border border-green/30 bg-green-tint text-green",
+  amber: "border border-amber/40 bg-amber-tint text-amber-dark",
+  red: "border border-red/30 bg-red-tint text-red",
 };
 
 // Levels used across the ER risk/forecast modules, mapped to a tone so
@@ -30,13 +30,13 @@ export default function StatusBadge({ label, tone, level, trend, size = "md" }) 
   const resolvedTone = tone || (level && LEVEL_TONE[level.toUpperCase()]) || "navy";
   const text = label ?? level ?? trend;
   const TrendIcon = trend ? TREND_ICON[trend.toLowerCase()] : null;
-  const sizeClass = size === "lg" ? "px-3.5 py-2 text-[13.5px]" : "px-2.5 py-1 text-[12px]";
+  const sizeClass = size === "lg" ? "px-3 py-1 text-[12.5px]" : "px-2 py-0.5 text-[11.5px]";
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full font-semibold ${sizeClass} ${TONE_CLASS[resolvedTone]}`}
+      className={`inline-flex items-center gap-1.5 rounded-md font-semibold ${sizeClass} ${TONE_CLASS[resolvedTone]}`}
     >
-      {TrendIcon && <TrendIcon className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" />}
+      {TrendIcon && <TrendIcon className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden="true" />}
       {text}
     </span>
   );

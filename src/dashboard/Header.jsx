@@ -119,20 +119,20 @@ function SystemStatus() {
         type="button"
         onClick={toggleMode}
         title="Click to toggle between REAL ML MODE and DEMO MODE"
-        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] font-bold uppercase tracking-wide transition-all shadow-sm focus:outline-none focus:ring-1 focus:ring-blue ${
+        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider transition-all focus:outline-none focus:ring-1 focus:ring-blue ${
           isRealMode
             ? "border border-green/30 bg-green-tint text-green hover:bg-green/10"
             : "border border-amber/40 bg-amber-tint text-amber-dark hover:bg-amber/10"
         }`}
       >
         <span className={`h-2 w-2 rounded-full ${isRealMode ? "bg-green animate-soft-pulse" : "bg-amber"}`} />
-        {isRealMode ? "⚡ REAL ML MODE" : "🧪 DEMO MODE"}
+        {isRealMode ? "REAL ML MODE" : "DEMO MODE"}
       </button>
 
       {isRealMode && (
         <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-medium ${
-            status.ok ? "bg-surface border border-border text-navy-soft" : "bg-amber-tint text-amber"
+          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold ${
+            status.ok ? "bg-surface border-border text-navy-soft" : "bg-amber-tint border-amber/30 text-amber-dark"
           }`}
         >
           {status.label}
@@ -147,15 +147,15 @@ export default function Header({ title, subtitle, onOpenMobileSidebar, onToggleD
   const { datePart, timePart } = formatDateTime(now);
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-surface/95 px-4 py-3.5 backdrop-blur sm:px-6">
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3 sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
           onClick={onOpenMobileSidebar}
           aria-label="Open menu"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-navy-muted hover:bg-bg lg:hidden"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-navy-muted hover:bg-bg lg:hidden"
         >
-          <Menu className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden="true" />
+          <Menu className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
         </button>
 
         {sidebarCollapsed && (
@@ -163,26 +163,26 @@ export default function Header({ title, subtitle, onOpenMobileSidebar, onToggleD
             type="button"
             onClick={onToggleDesktopSidebar}
             aria-label="Expand sidebar"
-            className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-navy-muted hover:bg-bg lg:flex"
+            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-navy-muted hover:bg-bg lg:flex"
           >
-            <PanelLeftOpen className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden="true" />
+            <PanelLeftOpen className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
           </button>
         )}
 
         <div className="min-w-0">
-          <h1 className="truncate text-[17px] font-semibold tracking-tight text-navy sm:text-[19px]">
+          <h1 className="truncate text-[16px] font-bold tracking-tight text-navy sm:text-[18px]">
             {title}
           </h1>
           {subtitle && (
-            <p className="mt-0.5 hidden truncate text-[12.5px] text-navy-soft sm:block">{subtitle}</p>
+            <p className="mt-0.5 hidden truncate text-[12px] font-normal text-navy-soft sm:block">{subtitle}</p>
           )}
         </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <div className="hidden flex-col items-end leading-tight md:flex">
-          <span className="font-mono text-[13px] font-semibold text-navy">{timePart}</span>
-          <span className="text-[11px] font-medium text-navy-soft">{datePart}</span>
+          <span className="font-mono text-[12.5px] font-bold text-navy">{timePart}</span>
+          <span className="text-[10.5px] font-medium text-navy-soft">{datePart}</span>
         </div>
         <SystemStatus />
         <NotificationsMenu />

@@ -163,19 +163,19 @@ export default function ForecastVisualization() {
     <section id="forecast" className="relative border-t border-border bg-surface">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg px-3 py-1.5 text-[13px] font-medium text-teal">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg px-3 py-1.5 text-[13px] font-semibold text-teal">
             Forecast Visualization
           </span>
-          <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-tight text-navy sm:text-4xl">
-            See Tomorrow's Patient Volume, Today
+          <h2 className="mt-5 text-3xl font-bold leading-tight tracking-tight text-navy sm:text-4xl">
+            See Upcoming Patient Volume & Demands
           </h2>
-          <p className="mt-4 text-[17px] leading-relaxed text-navy-muted">
+          <p className="mt-4 text-[16px] leading-relaxed text-navy-muted">
             ERFlow projects expected patient arrivals hour by hour, clearly separating
-            what already happened from what the model expects next.
+            observed history from model forecast projections.
           </p>
         </div>
 
-        <div className="mt-12 rounded-2xl border border-border bg-bg p-5 shadow-soft sm:p-6 lg:p-8">
+        <div className="mt-10 rounded-lg border border-border bg-bg p-4 shadow-soft sm:p-5 lg:p-6">
           <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
             <div>
               <p className="text-[13px] font-medium uppercase tracking-wide text-navy-soft">

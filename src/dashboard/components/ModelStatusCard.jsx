@@ -17,17 +17,17 @@ function StatusBadge({ state }) {
   const TONE_CLASSES = {
     green: "bg-green-tint text-green border-green/30",
     blue: "bg-blue-tint text-blue border-blue/30",
-    amber: "bg-amber-tint text-amber border-amber/30",
+    amber: "bg-amber-tint text-amber-dark border-amber/30",
     red: "bg-red-tint text-red border-red/30",
   };
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold ${
+      className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10.5px] font-semibold ${
         TONE_CLASSES[cfg.tone]
       }`}
     >
-      <Icon className={`h-3.5 w-3.5 ${state === "loading" ? "animate-spin" : ""}`} />
+      <Icon className={`h-3 w-3 ${state === "loading" ? "animate-spin" : ""}`} />
       {cfg.label}
     </span>
   );
@@ -130,7 +130,7 @@ export default function ModelStatusCard({ className = "" }) {
           type="button"
           onClick={fetchStatus}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-[12px] font-semibold text-navy-soft transition-colors hover:bg-bg hover:text-navy disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg px-2.5 py-1 text-[11.5px] font-semibold text-navy-soft transition-colors hover:bg-surface hover:text-navy disabled:opacity-50"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           Refresh Status
@@ -143,19 +143,19 @@ export default function ModelStatusCard({ className = "" }) {
           return (
             <div
               key={item.id}
-              className="flex flex-col justify-between rounded-xl border border-border bg-bg p-4 shadow-soft"
+              className="flex flex-col justify-between rounded-md border border-border bg-bg p-3.5 shadow-soft"
             >
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface text-navy shadow-soft">
-                    <Icon className="h-4 w-4" strokeWidth={2.25} />
+                  <span className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-surface text-navy">
+                    <Icon className="h-3.5 w-3.5" strokeWidth={2} />
                   </span>
                   <StatusBadge state={item.state} />
                 </div>
-                <h4 className="mt-3 text-[14px] font-semibold text-navy">{item.title}</h4>
-                <p className="mt-0.5 text-[12px] font-medium text-navy-soft">{item.subtitle}</p>
+                <h4 className="mt-2.5 text-[13.5px] font-semibold text-navy">{item.title}</h4>
+                <p className="mt-0.5 text-[11.5px] font-medium text-navy-soft">{item.subtitle}</p>
               </div>
-              <p className="mt-3 border-t border-border/60 pt-2 text-[11px] font-medium text-navy-muted">
+              <p className="mt-2.5 border-t border-border/60 pt-2 text-[11px] font-medium text-navy-muted">
                 {item.details}
               </p>
             </div>

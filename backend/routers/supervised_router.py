@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from fastapi import APIRouter, HTTPException, status
 from ..schemas.hospital_state import HospitalState
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/api", tags=["Supervised Learning"])
 async def predict_supervised(state: HospitalState):
     """Run both XGBoost Regressor and Classifier on the provided hospital state."""
     try:
-        return supervised_service.predict_all(state)
+        return await asyncio.to_thread(supervised_service.predict_all, state)
     except Exception as e:
         logger.error(f"Error in supervised prediction: {e}", exc_info=True)
         raise HTTPException(
@@ -38,7 +39,7 @@ async def predict_supervised(state: HospitalState):
 async def predict_waiting_time(state: HospitalState):
     """Run XGBoost Regressor to predict waiting time."""
     try:
-        return supervised_service.predict_waiting_time(state)
+        return await asyncio.to_thread(supervised_service.predict_waiting_time, state)
     except Exception as e:
         logger.error(f"Error in waiting time prediction: {e}", exc_info=True)
         raise HTTPException(
@@ -55,10 +56,11 @@ async def predict_waiting_time(state: HospitalState):
 async def predict_crowding_risk(state: HospitalState):
     """Run XGBoost Classifier to predict multi-class crowding level."""
     try:
-        return supervised_service.predict_crowding_risk(state)
+        return await asyncio.to_thread(supervised_service.predict_crowding_risk, state)
     except Exception as e:
         logger.error(f"Error in crowding risk prediction: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Crowding risk prediction failed: {str(e)}"
         )
+

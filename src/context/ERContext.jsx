@@ -243,15 +243,20 @@ function generateDemoPredictions(state) {
       if (res) {
         setPredictions(res);
         setHasRunPredictions(true);
+        setError(null);
         const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         setLastUpdated(now);
-        setModelStatus({
-          forecast: isRealMode ? "success" : "demo",
-          waiting_time: isRealMode ? "success" : "demo",
-          crowding_risk: isRealMode ? "success" : "demo",
-          flow_pattern: isRealMode ? "success" : "demo",
-          surge_detection: isRealMode ? "success" : "demo",
-        });
+
+        const statusMode = isRealMode ? "success" : "demo";
+        const computedStatus = {
+          forecast: res.forecast && !res.forecast.error ? (res.engine_status?.forecast || statusMode) : "failed",
+          waiting_time: res.waiting_time && !res.waiting_time.error ? (res.engine_status?.waiting_time || statusMode) : "failed",
+          crowding_risk: res.crowding_risk && !res.crowding_risk.error ? (res.engine_status?.crowding_risk || statusMode) : "failed",
+          flow_pattern: res.flow_pattern && !res.flow_pattern.error ? (res.engine_status?.flow_pattern || statusMode) : "failed",
+          surge_detection: res.surge_detection && !res.surge_detection.error ? (res.engine_status?.surge_detection || statusMode) : "failed",
+        };
+
+        setModelStatus(computedStatus);
 
         try {
           sessionStorage.setItem("erflow_predictions", JSON.stringify(res));
@@ -262,7 +267,7 @@ function generateDemoPredictions(state) {
       }
     } catch (err) {
       console.warn("Central prediction update failed:", err.message);
-      setError(err.message || "Failed to update multi-model predictions.");
+      setError(err);
       setModelStatus({
         forecast: "error",
         waiting_time: "error",

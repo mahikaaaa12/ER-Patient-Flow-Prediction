@@ -29,8 +29,8 @@ const PAGE_META = {
     subtitle: "Anomaly detection for unexpected patient volume",
   },
   "/dashboard/ai-assistant": {
-    title: "AI Assistant",
-    subtitle: "Ask plain-language questions about current ER conditions",
+    title: "Operations Assistant",
+    subtitle: "Operational questions, waiting times, crowding risk, and ER triage guidance",
   },
 };
 

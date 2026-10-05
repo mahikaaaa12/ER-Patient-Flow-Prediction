@@ -59,25 +59,25 @@ export default function PatientFlowPipeline({ data }) {
   ];
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-5 shadow-soft">
-      <div className="flex flex-col gap-2 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="rounded-lg border border-border bg-surface p-4 shadow-soft">
+      <div className="flex flex-col gap-2 border-b border-border pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-[16px] font-semibold text-navy">Patient Flow Journey Pipeline</h3>
-          <p className="mt-0.5 text-[12.5px] text-navy-soft">
+          <h3 className="text-[15px] font-semibold tracking-tight text-navy">Patient Flow Journey Pipeline</h3>
+          <p className="mt-0.5 text-[12px] text-navy-soft">
             Live 4-stage operational flow tracking from patient arrival to surge resolution
           </p>
         </div>
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-blue/20 bg-blue-tint px-3 py-1 text-[12px] font-semibold text-blue">
+        <span className="inline-flex w-fit items-center gap-1.5 rounded border border-blue/20 bg-blue-tint px-2.5 py-0.5 text-[11px] font-semibold text-blue">
           <Activity className="h-3.5 w-3.5" /> Live Operational Journey
         </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stages.map((stage, idx) => {
           const Icon = stage.icon;
           const toneClasses = {
             green: "bg-green-tint text-green border-green/30",
-            amber: "bg-amber-tint text-amber border-amber/30",
+            amber: "bg-amber-tint text-amber-dark border-amber/30",
             red: "bg-red-tint text-red border-red/30",
             blue: "bg-blue-tint text-blue border-blue/30",
           };
@@ -85,33 +85,33 @@ export default function PatientFlowPipeline({ data }) {
           return (
             <div
               key={stage.id}
-              className="relative flex flex-col justify-between rounded-xl border border-border bg-bg p-4 transition-all hover:border-border-strong"
+              className="relative flex flex-col justify-between rounded-md border border-border bg-bg p-3.5 transition-all hover:border-border-strong"
             >
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-[11px] font-bold text-navy-soft">STAGE {stage.step}</span>
+                  <span className="font-mono text-[10.5px] font-bold text-navy-soft">STAGE {stage.step}</span>
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                    className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10.5px] font-semibold ${
                       toneClasses[stage.badgeTone]
                     }`}
                   >
                     {stage.badge}
                   </span>
                 </div>
-                <div className="mt-3 flex items-center gap-2">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface text-navy shadow-soft">
-                    <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
+                <div className="mt-2.5 flex items-center gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-border bg-surface text-navy">
+                    <Icon className="h-3.5 w-3.5" strokeWidth={2} />
                   </span>
-                  <h4 className="text-[13.5px] font-semibold text-navy">{stage.label}</h4>
+                  <h4 className="text-[13px] font-semibold text-navy">{stage.label}</h4>
                 </div>
-                <p className="mt-2.5 text-[16px] font-bold tracking-tight text-navy">{stage.metric}</p>
-                <p className="mt-0.5 text-[12px] font-medium text-navy-soft">{stage.subtitle}</p>
+                <p className="mt-2 text-[15px] font-bold tracking-tight text-navy">{stage.metric}</p>
+                <p className="mt-0.5 text-[11.5px] font-medium text-navy-soft">{stage.subtitle}</p>
               </div>
 
               {idx < stages.length - 1 && (
                 <div className="absolute -right-3 top-1/2 hidden -translate-y-1/2 z-10 xl:block">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface text-navy-muted shadow-soft">
-                    <ArrowRight className="h-3 w-3" strokeWidth={2.25} />
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-border bg-surface text-navy-muted shadow-soft">
+                    <ArrowRight className="h-3 w-3" strokeWidth={2} />
                   </span>
                 </div>
               )}

@@ -16,6 +16,7 @@ import PageHeader from "../components/PageHeader";
 import ModelBadge from "../components/ModelBadge";
 import StatusBadge from "../components/StatusBadge";
 import MetricCard from "../components/MetricCard";
+import OperationalStatusBanner from "../components/OperationalStatusBanner";
 import { erflowApi } from "../../services/api";
 import { useMode } from "../../context/ModeContext";
 
@@ -123,7 +124,7 @@ export default function ModelMonitoring() {
     <div className="flex flex-col gap-6">
       {/* Demo Mode Notice */}
       {isDemoMode && (
-        <div className="flex items-center justify-between rounded-xl border border-amber/40 bg-amber-tint px-4 py-3 text-[13px] text-amber-dark">
+        <div className="flex items-center justify-between rounded-lg border border-amber/40 bg-amber-tint px-4 py-3 text-[13px] text-amber-dark">
           <div className="flex items-center gap-2 font-medium">
             <span className="rounded bg-amber px-2 py-0.5 text-[11px] font-bold text-white uppercase">DEMO MODE</span>
             <span>Displaying synthetic telemetry metrics. Switch to REAL ML MODE in the header for live backend model monitoring.</span>
@@ -132,14 +133,15 @@ export default function ModelMonitoring() {
       )}
 
       <PageHeader
-        title="ML Model Monitoring & Health"
+        section="SYSTEM HEALTH"
+        title="Model Health & Telemetry"
         subtitle="Real-time inference telemetry, latency performance, error tracking, and input drift monitoring."
         action={
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={fetchReport}
-              className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-[12.5px] font-semibold text-navy hover:bg-bg"
+              className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] font-semibold text-navy hover:bg-bg"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
             </button>
@@ -148,13 +150,13 @@ export default function ModelMonitoring() {
         }
       />
 
-      {isRealMode && error && (
-        <div className="flex items-center justify-between rounded-xl border border-red/30 bg-red-tint px-4 py-3 text-[13px] text-red">
-          <div className="flex items-center gap-2 font-semibold">
-            <AlertTriangle className="h-4 w-4 text-red shrink-0" />
-            <span>{error}</span>
-          </div>
-        </div>
+      {isRealMode && (loading || error) && (
+        <OperationalStatusBanner
+          loading={loading}
+          error={error}
+          moduleName="Model Health & Telemetry"
+          onRetry={fetchReport}
+        />
       )}
 
       {/* SUMMARY METRICS PILLARS */}
@@ -191,14 +193,14 @@ export default function ModelMonitoring() {
 
       {/* SYSTEM ALERTS BANNER */}
       {alerts.length > 0 ? (
-        <div className="rounded-2xl border border-amber/40 bg-amber-tint p-5">
+        <div className="rounded-lg border border-amber/40 bg-amber-tint p-4 sm:p-5">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle className="h-5 w-5 text-amber-dark" />
             <h3 className="text-[14px] font-bold text-amber-dark uppercase">Active Operational System Alerts</h3>
           </div>
           <div className="flex flex-col gap-2">
             {alerts.map((alert, idx) => (
-              <div key={idx} className="flex items-center justify-between rounded-xl bg-surface px-4 py-2.5 text-[13px] border border-border">
+              <div key={idx} className="flex items-center justify-between rounded-md bg-surface px-4 py-2.5 text-[13px] border border-border">
                 <span className="font-semibold text-navy">{alert.model}: {alert.message}</span>
                 <StatusBadge label={alert.severity.toUpperCase()} tone={alert.severity === "critical" ? "red" : "amber"} />
               </div>
@@ -206,14 +208,14 @@ export default function ModelMonitoring() {
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-2 rounded-xl border border-teal/30 bg-teal-tint px-4 py-3 text-[13px] text-teal font-semibold">
+        <div className="flex items-center gap-2 rounded-md border border-teal/30 bg-teal-tint px-4 py-3 text-[13px] text-teal font-semibold">
           <CheckCircle2 className="h-4 w-4" />
           <span>All 5 ML prediction models are operating cleanly within normal performance parameters.</span>
         </div>
       )}
 
       {/* DETAILED MODEL TELEMETRY TABLE */}
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-soft">
+      <div className="rounded-lg border border-border bg-surface p-5 sm:p-6 shadow-soft">
         <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
           <div>
             <span className="text-[11.5px] font-bold tracking-wider text-navy-soft uppercase">

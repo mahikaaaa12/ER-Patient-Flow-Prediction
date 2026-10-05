@@ -1,10 +1,10 @@
 import {
   BrainCircuit,
+  Cpu,
   Database,
   Layers,
   MonitorSmartphone,
   Server,
-  Sparkles,
   Workflow,
 } from "lucide-react";
 
@@ -35,28 +35,28 @@ const CATEGORIES = [
     label: "Backend",
     icon: Server,
     accent: "navy",
-    items: ["Django"],
+    items: ["FastAPI / Python"],
   },
   {
     key: "database",
     label: "Database",
     icon: Database,
     accent: "amber",
-    items: ["PostgreSQL"],
+    items: ["ChromaDB / Vector Index"],
   },
   {
     key: "ai",
-    label: "AI",
-    icon: Sparkles,
+    label: "Operational AI",
+    icon: Cpu,
     accent: "blue",
-    items: ["LLM Integration", "Optional RAG"],
+    items: ["Language Models", "RAG Knowledge Base"],
   },
   {
     key: "frontend",
     label: "Frontend",
     icon: MonitorSmartphone,
     accent: "teal",
-    items: ["React", "Tailwind CSS"],
+    items: ["React", "Tailwind CSS", "Vite"],
   },
 ];
 
@@ -73,7 +73,7 @@ export default function TechnologyStack() {
     <section id="technology" className="relative border-t border-border bg-surface">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg px-3 py-1.5 text-[13px] font-medium text-teal">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg px-3 py-1.5 text-[13px] font-semibold text-teal">
             Technology Stack
           </span>
           <h2 className="mt-5 text-3xl font-semibold leading-tight tracking-tight text-navy sm:text-4xl">

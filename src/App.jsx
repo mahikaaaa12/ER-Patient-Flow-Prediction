@@ -10,6 +10,7 @@ import SurgeDetection from "./dashboard/pages/SurgeDetection";
 import ScenarioSimulator from "./dashboard/pages/ScenarioSimulator";
 import ModelMonitoring from "./dashboard/pages/ModelMonitoring";
 import AIAssistant from "./dashboard/pages/AIAssistant";
+import Reports from "./dashboard/pages/Reports";
 import NotFound from "./pages/NotFound";
 import ErrorBoundary from "./dashboard/components/ErrorBoundary";
 import { ModeProvider } from "./context/ModeContext";
@@ -32,6 +33,7 @@ function AppContent() {
         <Route path="surge-detection" element={<ErrorBoundary resetKey={resetKey}><SurgeDetection /></ErrorBoundary>} />
         <Route path="scenario-simulator" element={<ErrorBoundary resetKey={resetKey}><ScenarioSimulator /></ErrorBoundary>} />
         <Route path="monitoring" element={<ErrorBoundary resetKey={resetKey}><ModelMonitoring /></ErrorBoundary>} />
+        <Route path="reports" element={<ErrorBoundary resetKey={resetKey}><Reports /></ErrorBoundary>} />
         <Route path="ai-assistant" element={<ErrorBoundary resetKey={resetKey}><AIAssistant /></ErrorBoundary>} />
       </Route>
 

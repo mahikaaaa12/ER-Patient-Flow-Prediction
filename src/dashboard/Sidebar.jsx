@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Bot,
   Clock,
+  FileText,
   LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
@@ -23,20 +24,21 @@ export const NAV_ITEMS = [
   { to: "/dashboard/surge-detection", label: "Surge Detection", icon: Waves },
   { to: "/dashboard/scenario-simulator", label: "Scenario Simulator", icon: Zap },
   { to: "/dashboard/monitoring", label: "Model Monitoring", icon: Server },
-  { to: "/dashboard/ai-assistant", label: "AI Assistant", icon: Bot },
+  { to: "/dashboard/reports", label: "Operations Reports", icon: FileText },
+  { to: "/dashboard/ai-assistant", label: "Operations Assistant", icon: Bot },
 ];
 
 function Logo({ collapsed }) {
   return (
     <div className={`flex items-center gap-2.5 px-1 ${collapsed ? "justify-center" : ""}`}>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue text-white">
-        <Activity className="h-5 w-5" strokeWidth={2.25} aria-hidden="true" />
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue text-white shadow-soft">
+        <Activity className="h-4.5 w-4.5" strokeWidth={2.25} aria-hidden="true" />
       </span>
       {!collapsed && (
         <div className="leading-tight">
-          <p className="text-[15px] font-semibold tracking-tight text-white">ERFlow</p>
-          <p className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-white/50">
-            Operations
+          <p className="text-[14.5px] font-bold tracking-tight text-white">ERFlow</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">
+            Clinical Operations
           </p>
         </div>
       )}
@@ -55,12 +57,12 @@ function NavItems({ collapsed, onNavigate }) {
             onClick={onNavigate}
             title={collapsed ? label : undefined}
             className={({ isActive }) =>
-              `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14.5px] font-medium transition-colors ${
+              `group flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13.5px] font-medium transition-colors ${
                 collapsed ? "justify-center" : ""
               } ${
                 isActive
-                  ? "bg-white/10 text-white"
-                  : "text-white/60 hover:bg-white/5 hover:text-white"
+                  ? "bg-white/12 text-white font-semibold shadow-xs"
+                  : "text-white/65 hover:bg-white/6 hover:text-white"
               }`
             }
           >
@@ -68,10 +70,10 @@ function NavItems({ collapsed, onNavigate }) {
               <>
                 <span
                   className={`flex h-5 w-5 shrink-0 items-center justify-center ${
-                    isActive ? "text-blue" : ""
+                    isActive ? "text-blue-tint" : "text-white/60 group-hover:text-white"
                   }`}
                 >
-                  <Icon className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden="true" />
+                  <Icon className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                 </span>
                 {!collapsed && <span className="truncate">{label}</span>}
                 {isActive && !collapsed && (
@@ -90,12 +92,12 @@ function NavItems({ collapsed, onNavigate }) {
 export function DesktopSidebar({ collapsed, onToggleCollapsed }) {
   return (
     <aside
-      className={`sticky top-0 hidden h-svh shrink-0 flex-col justify-between border-r border-white/10 bg-navy px-3 py-4 transition-[width] duration-200 lg:flex ${
-        collapsed ? "w-[76px]" : "w-64"
+      className={`sticky top-0 hidden h-svh shrink-0 flex-col justify-between border-r border-white/10 bg-navy px-2.5 py-4 transition-[width] duration-200 lg:flex ${
+        collapsed ? "w-[72px]" : "w-60"
       }`}
     >
       <div>
-        <div className="mb-6">
+        <div className="mb-5 px-1">
           <Logo collapsed={collapsed} />
         </div>
         <NavItems collapsed={collapsed} />
@@ -105,15 +107,15 @@ export function DesktopSidebar({ collapsed, onToggleCollapsed }) {
         type="button"
         onClick={onToggleCollapsed}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13.5px] font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white ${
+        className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium text-white/60 transition-colors hover:bg-white/6 hover:text-white ${
           collapsed ? "justify-center" : ""
         }`}
       >
         {collapsed ? (
-          <PanelLeftOpen className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden="true" />
+          <PanelLeftOpen className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
         ) : (
           <>
-            <PanelLeftClose className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden="true" />
+            <PanelLeftClose className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
             Collapse
           </>
         )}
@@ -135,21 +137,21 @@ export function MobileSidebar({ open, onClose }) {
         aria-hidden="true"
       />
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-svh w-72 max-w-[82vw] flex-col justify-between bg-navy px-3 py-4 shadow-lift transition-transform duration-200 lg:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-svh w-64 max-w-[82vw] flex-col justify-between bg-navy px-3 py-4 shadow-lift transition-transform duration-200 lg:hidden ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
         aria-hidden={!open}
       >
         <div>
-          <div className="mb-6 flex items-center justify-between px-1">
+          <div className="mb-5 flex items-center justify-between px-1">
             <Logo collapsed={false} />
             <button
               type="button"
               onClick={onClose}
               aria-label="Close menu"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-white/70 hover:bg-white/10 hover:text-white"
             >
-              <X className="h-5 w-5" aria-hidden="true" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
           <NavItems collapsed={false} onNavigate={onClose} />

@@ -72,7 +72,7 @@ export default function StepperControl({
     <div className="flex flex-col gap-1">
       {label && (
         <div className="flex items-center justify-between">
-          <label className="block text-[11px] font-bold uppercase tracking-wider text-navy-soft truncate">
+          <label className="block text-[10.5px] font-bold uppercase tracking-wider text-navy-soft truncate">
             {label}
           </label>
           {description && (
@@ -81,15 +81,15 @@ export default function StepperControl({
         </div>
       )}
 
-      <div className="flex h-9 items-center justify-between rounded-lg border border-border/80 bg-surface px-1.5 shadow-none transition-all hover:border-blue/40 focus-within:border-blue">
+      <div className="flex h-8 items-center justify-between rounded-md border border-border bg-surface px-1 transition-colors hover:border-blue/40 focus-within:border-blue">
         <button
           type="button"
           onClick={handleDecrement}
           disabled={disabled || isMin}
           aria-label={`Decrease ${label || "value"}`}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-bg text-navy transition-colors hover:bg-blue-tint hover:text-blue disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-border bg-bg text-navy transition-colors hover:border-blue/30 hover:bg-blue-tint hover:text-blue disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none"
         >
-          <Minus className="h-3 w-3 stroke-[2.25]" />
+          <Minus className="h-3 w-3 stroke-[2]" />
         </button>
 
         <div className="px-1.5 text-center truncate">
@@ -101,9 +101,9 @@ export default function StepperControl({
           onClick={handleIncrement}
           disabled={disabled || isMax}
           aria-label={`Increase ${label || "value"}`}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-bg text-navy transition-colors hover:bg-blue-tint hover:text-blue disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-border bg-bg text-navy transition-colors hover:border-blue/30 hover:bg-blue-tint hover:text-blue disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none"
         >
-          <Plus className="h-3 w-3 stroke-[2.25]" />
+          <Plus className="h-3 w-3 stroke-[2]" />
         </button>
       </div>
 

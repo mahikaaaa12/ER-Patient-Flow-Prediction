@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from fastapi import APIRouter, HTTPException, status
 from ..schemas.hospital_state import HospitalState
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/api", tags=["Unsupervised Learning"])
 async def predict_unsupervised(state: HospitalState):
     """Run both K-Means pattern discovery and DBSCAN surge detector."""
     try:
-        return unsupervised_service.predict_all(state)
+        return await asyncio.to_thread(unsupervised_service.predict_all, state)
     except Exception as e:
         logger.error(f"Error in unsupervised prediction: {e}", exc_info=True)
         raise HTTPException(
@@ -38,7 +39,7 @@ async def predict_unsupervised(state: HospitalState):
 async def get_flow_pattern(state: HospitalState):
     """Run K-Means clustering and PCA projection."""
     try:
-        return unsupervised_service.predict_flow_pattern(state)
+        return await asyncio.to_thread(unsupervised_service.predict_flow_pattern, state)
     except Exception as e:
         logger.error(f"Error in flow pattern discovery: {e}", exc_info=True)
         raise HTTPException(
@@ -55,10 +56,11 @@ async def get_flow_pattern(state: HospitalState):
 async def detect_surge(state: HospitalState):
     """Run DBSCAN anomaly detection against baseline."""
     try:
-        return unsupervised_service.detect_surge(state)
+        return await asyncio.to_thread(unsupervised_service.detect_surge, state)
     except Exception as e:
         logger.error(f"Error in surge detection: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Surge detection failed: {str(e)}"
         )
+
