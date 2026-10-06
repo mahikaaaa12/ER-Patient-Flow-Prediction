@@ -256,6 +256,91 @@ class ResponseGenerator:
                 return "\n".join(lines)
             return self.UNAVAILABLE_MESSAGE
 
+        # G. OPERATIONAL COMMAND & WORKLOAD ORCHESTRATOR
+        elif intent_enum == Intent.OPERATIONAL_COMMAND:
+            if isinstance(payload, dict) and "pressure_level" in payload:
+                plevel = payload.get("pressure_level", "MODERATE")
+                pscore = payload.get("overall_pressure_score", 50.0)
+                workload = payload.get("workload_assessment", {})
+                issues = payload.get("prioritized_issues", [])
+                recs = payload.get("recommended_actions", [])
+
+                doc_ratio = workload.get("doctor_load_ratio", 0.0)
+                nurse_ratio = workload.get("nurse_load_ratio", 0.0)
+                occ = workload.get("bed_occupancy_percent", 0.0)
+                up_level = workload.get("upcoming_3h_workload_level", "MODERATE")
+
+                top_issue = issues[0] if issues else {}
+                top_rec = recs[0] if recs else {}
+                expl = top_rec.get("explanation_detail", {}) if isinstance(top_rec, dict) else {}
+
+                lines = [
+                    f"⚡ **ED Operations Command Center Assessment**:\n",
+                    f"**CURRENT DATA**:",
+                    f"• **Overall Pressure**: {plevel} ({pscore}/100 index)",
+                    f"• **Bed Occupancy**: {occ:.0f}%",
+                    f"• **Staff Ratios**: {doc_ratio} waiting pts/MD | {nurse_ratio} active pts/RN",
+                ]
+
+                if top_issue:
+                    lines.append(f"• **Primary Operational Issue**: [{top_issue.get('severity', 'HIGH')}] {top_issue.get('category', 'OPERATIONS')} - {top_issue.get('title', 'Demand Pressure')}")
+
+                lines.append(f"\n**FORECAST**:")
+                lines.append(f"• **Upcoming 3h Trajectory**: {up_level} Workload Risk")
+                if expl and expl.get("triggering_prediction"):
+                    lines.append(f"• **Model Indicator**: {expl.get('triggering_prediction')}")
+
+                if top_rec:
+                    lines.append(f"\n**RECOMMENDED OPERATIONAL ACTION**:")
+                    lines.append(f"• **Action**: {top_rec.get('title', 'Resource Allocation')}")
+                    lines.append(f"• **Details**: {top_rec.get('recommended_action', 'Review staffing allocations.')}")
+                    lines.append(f"• **Urgency**: {top_rec.get('urgency', 'WITHIN 30 MIN')}")
+
+                    if expl and expl.get("contributing_factors"):
+                        factors = [f.get("name") for f in expl.get("contributing_factors", []) if f.get("name")]
+                        if factors:
+                            lines.append(f"• **Contributing Factors**: {', '.join(factors)}")
+
+                lines.append(f"\n**SIMULATION**:")
+                lines.append(f"• Test interventions (e.g., adding 1 nurse or physician) side-by-side using the **⚡ Scenario Simulator** page or by clicking **[Simulate]** on the Command Center card.")
+
+                lines.append(f"\n**GENERAL GUIDANCE**:")
+                if expl and expl.get("staff_review_guidance"):
+                    lines.append(f"• {expl.get('staff_review_guidance')}")
+                else:
+                    lines.append(f"• Command staff should monitor live telemetry and triage throughput.")
+                lines.append(f"*(Note: Operational decision support only; does not provide clinical diagnosis or treatment)*")
+
+                return "\n".join(lines)
+            return self.UNAVAILABLE_MESSAGE
+
+        # H. SIMULATION INQUIRY
+        elif intent_enum == Intent.SIMULATION_INQUIRY:
+            if isinstance(payload, dict) and "workload_assessment" in payload:
+                workload = payload.get("workload_assessment", {})
+                nurse_ratio = workload.get("nurse_load_ratio", 0.0)
+                doc_ratio = workload.get("doctor_load_ratio", 0.0)
+                occ = workload.get("bed_occupancy_percent", 0.0)
+
+                lines = [
+                    f"🧪 **Scenario Simulation Guidance**:\n",
+                    f"**CURRENT DATA**:",
+                    f"• **Active Staff Ratios**: {doc_ratio} pts/MD | {nurse_ratio} pts/RN",
+                    f"• **Current Occupancy**: {occ:.0f}%",
+                    f"\n**SIMULATION (WHAT-IF ANALYSIS)**:",
+                    f"• **Intervention**: Adding 1 Nurse (or Physician) distributes patient load across active shift staff.",
+                    f"• **Expected Impact**: Reduces Nurse Load Ratio and predicted waiting time by improving triage intake velocity.",
+                    f"• **How to Run**: Click the **[Simulate]** button on any Command Center recommendation card or open the **⚡ Scenario Simulator** page from the sidebar to compare **BASELINE** vs **SIMULATED INTERVENTION** side-by-side.",
+                    f"\n**GENERAL GUIDANCE**:",
+                    f"• All simulated values are clearly flagged as `SIMULATION / WHAT-IF` and represent hypothetical operational outcomes for decision support.",
+                ]
+                return "\n".join(lines)
+            return (
+                "🧪 **Scenario Simulation Guidance**:\n"
+                "You can simulate operational interventions such as adding 1 nurse, adding 1 physician, or increasing beds "
+                "in the **⚡ Scenario Simulator** page. The simulator compares **BASELINE** vs **SIMULATED INTERVENTION** outcomes."
+            )
+
         return self.UNAVAILABLE_MESSAGE
 
 

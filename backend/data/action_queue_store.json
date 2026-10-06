@@ -1,0 +1,232 @@
+[
+  {
+    "id": "rec-bed-capacity",
+    "category": "BED CAPACITY",
+    "title": "Accelerate Inpatient Transfers & Activate Discharge Lounge",
+    "recommendation": "Coordinate with hospital bed command to expedite pending inpatient transfers and utilize the discharge lounge for admitted patients awaiting transport.",
+    "priority": "HIGH",
+    "created_at": "2026-10-06T17:14:31.499853+00:00",
+    "due_time": "05:29 PM",
+    "status": "NEW",
+    "contributing_factors": [
+      "Patients Waiting (+47%)",
+      "Occupancy Percent (+43%)",
+      "Patients Per Staff (+4%)",
+      "Severity Level (+2%)"
+    ],
+    "source_prediction": "Supervised XGBoost Classifier (Crowding Risk)",
+    "urgency": "WITHIN 30 MIN",
+    "reason": "Current occupancy (50%) exceeds standard operational safety thresholds in department telemetry.",
+    "explanation_detail": {
+      "detection_rationale": "Bed capacity strain was flagged because department telemetry indicates occupancy at 50% capacity with 6 available beds, correlated with a HIGH crowding risk prediction.",
+      "contributing_factors": [
+        {
+          "name": "Patients Waiting",
+          "impact": "decreases_pressure",
+          "contribution_score": 47.0,
+          "detail": "Patients Waiting feature attribution indicates it decreases model risk (+47.0% relative weight)"
+        },
+        {
+          "name": "Occupancy Percent",
+          "impact": "increases_pressure",
+          "contribution_score": 43.0,
+          "detail": "Occupancy Percent feature attribution indicates it increases model risk (+43.0% relative weight)"
+        },
+        {
+          "name": "Patients Per Staff",
+          "impact": "increases_pressure",
+          "contribution_score": 4.0,
+          "detail": "Patients Per Staff feature attribution indicates it increases model risk (+4.0% relative weight)"
+        },
+        {
+          "name": "Severity Level",
+          "impact": "decreases_pressure",
+          "contribution_score": 2.0,
+          "detail": "Severity Level feature attribution indicates it decreases model risk (+2.0% relative weight)"
+        }
+      ],
+      "strongest_influencer": "Feature attribution indicates 'Patients Waiting' has the strongest mathematical influence on this capacity alert.",
+      "triggering_prediction": "XGBoost Crowding Classifier output score of 82.0/100 (HIGH risk level).",
+      "expected_operational_condition": "Treatment bay turnover is projected to slow as 3-hour forecasted arrivals (33 patients) enter the department.",
+      "staff_review_guidance": "Command staff should review inpatient transfer holding times, bed cleaning turnover velocity, and discharge lounge availability.",
+      "disclaimer": "Non-causal model attribution: Feature attributions indicate statistical associations in department telemetry and do not imply direct clinical causality."
+    }
+  },
+  {
+    "id": "rec-triage-capacity",
+    "category": "TRIAGE CAPACITY",
+    "title": "Deploy Auxiliary Triage Screening & Open Fast-Track Bay",
+    "recommendation": "Assign a second triage nurse to initiate rapid intake and open a dedicated fast-track area for low-acuity patients.",
+    "priority": "CRITICAL",
+    "created_at": "2026-10-06T17:14:31.499853+00:00",
+    "due_time": "05:29 PM",
+    "status": "NEW",
+    "contributing_factors": [
+      "Patients Waiting (+77%)",
+      "Patients Per Staff (+17%)",
+      "Arrival Rate (+2%)",
+      "Available Doctors (+1%)"
+    ],
+    "source_prediction": "Supervised XGBoost Regressor (Wait Time)",
+    "urgency": "IMMEDIATE",
+    "reason": "Wait times (90 min) are projected to escalate if queue volume is not processed rapidly.",
+    "explanation_detail": {
+      "detection_rationale": "Triage queue strain was detected because telemetry indicates 30 patients waiting and the XGBoost Regressor predicts a wait time of 90 minutes.",
+      "contributing_factors": [
+        {
+          "name": "Patients Waiting",
+          "impact": "increases_pressure",
+          "contribution_score": 77.0,
+          "detail": "Patients Waiting feature attribution indicates it increases model risk (+77.0% relative weight)"
+        },
+        {
+          "name": "Patients Per Staff",
+          "impact": "increases_pressure",
+          "contribution_score": 17.0,
+          "detail": "Patients Per Staff feature attribution indicates it increases model risk (+17.0% relative weight)"
+        },
+        {
+          "name": "Arrival Rate",
+          "impact": "increases_pressure",
+          "contribution_score": 2.0,
+          "detail": "Arrival Rate feature attribution indicates it increases model risk (+2.0% relative weight)"
+        },
+        {
+          "name": "Available Doctors",
+          "impact": "decreases_pressure",
+          "contribution_score": 1.0,
+          "detail": "Available Doctors feature attribution indicates it decreases model risk (+1.0% relative weight)"
+        }
+      ],
+      "strongest_influencer": "TreeSHAP feature attributions show 'Patients Waiting' exerts the highest quantitative weight on wait time predictions.",
+      "triggering_prediction": "Supervised XGBoost Regressor output of 90 minutes (trend: Increasing).",
+      "expected_operational_condition": "Triage processing delays are expected to increase if arrival velocity (25 pts/hr) continues to exceed intake rate.",
+      "staff_review_guidance": "Staff should review triage screening nurse availability, ESI classification speed, and fast-track bay staffing.",
+      "disclaimer": "Non-causal model attribution: Feature attributions indicate statistical associations in department telemetry and do not imply direct clinical causality."
+    }
+  },
+  {
+    "id": "rec-staffing-allocation",
+    "category": "STAFFING",
+    "title": "Request Float Pool Coverage & Adjust Provider Shift Assignment",
+    "recommendation": "Request float pool nursing assistance and reassign mid-level clinical providers to assist with queue clearance.",
+    "priority": "CRITICAL",
+    "created_at": "2026-10-06T17:14:31.499853+00:00",
+    "due_time": "05:44 PM",
+    "status": "NEW",
+    "contributing_factors": [
+      "Doctor Load Ratio (+8%)",
+      "Nurse Load Ratio (+8%)",
+      "Active Staff Count (+10%)"
+    ],
+    "source_prediction": "HospitalState Staff Ratio Analysis",
+    "urgency": "WITHIN 30 MIN",
+    "reason": "Workload ratios exceed recommended clinical throughput baselines in active shift telemetry.",
+    "explanation_detail": {
+      "detection_rationale": "Staffing workload saturation was flagged because physician load (7.5 pts/MD) and nurse load (7.9 pts/RN) exceed recommended operational baselines.",
+      "contributing_factors": [
+        {
+          "name": "Doctor Load Ratio",
+          "impact": "increases_pressure",
+          "contribution_score": 7.5,
+          "detail": "7.5 waiting patients per active physician"
+        },
+        {
+          "name": "Nurse Load Ratio",
+          "impact": "increases_pressure",
+          "contribution_score": 7.9,
+          "detail": "7.9 active patients per active nurse"
+        },
+        {
+          "name": "Active Staff Count",
+          "impact": "decreases_pressure",
+          "contribution_score": 10.0,
+          "detail": "4 MDs and 6 RNs on active shift"
+        }
+      ],
+      "strongest_influencer": "Staff workload ratio calculations indicate 'Doctor Load Ratio' (7.5 pts/MD) is the primary driver of provider strain.",
+      "triggering_prediction": "Derived ratio analysis combined with XGBoost wait time projection (90 min).",
+      "expected_operational_condition": "Staff fatigue and delayed order execution may occur if provider-to-patient ratios remain elevated.",
+      "staff_review_guidance": "Review float pool nurse availability, attending physician shift overlaps, and mid-level provider coverage.",
+      "disclaimer": "Non-causal model attribution: Feature attributions indicate statistical associations in department telemetry and do not imply direct clinical causality."
+    }
+  },
+  {
+    "id": "rec-surge-mitigation",
+    "category": "ARRIVAL PRESSURE",
+    "title": "Activate Emergency Arrival Surge Protocol & Notify EMS",
+    "recommendation": "Notify regional EMS command of high department occupancy and prepare temporary hallway registration stations.",
+    "priority": "CRITICAL",
+    "created_at": "2026-10-06T17:14:31.499853+00:00",
+    "due_time": "05:24 PM",
+    "status": "NEW",
+    "contributing_factors": [
+      "Arrival Rate Velocity (+25%)",
+      "DBSCAN Anomaly Detector (+100%)"
+    ],
+    "source_prediction": "Unsupervised DBSCAN Anomaly Detector",
+    "urgency": "IMMEDIATE",
+    "reason": "Unsupervised DBSCAN engine detected an arrival rate spike (25 pts/hr) deviating from statistical baseline.",
+    "explanation_detail": {
+      "detection_rationale": "Arrival surge was detected because arrival velocity (25 pts/hr) deviates by +39% from the historical baseline.",
+      "contributing_factors": [
+        {
+          "name": "Arrival Rate Velocity",
+          "impact": "increases_pressure",
+          "contribution_score": 25.0,
+          "detail": "25 arrivals per hour"
+        },
+        {
+          "name": "DBSCAN Anomaly Detector",
+          "impact": "increases_pressure",
+          "contribution_score": 100.0,
+          "detail": "ANOMALOUS SURGE DETECTED"
+        }
+      ],
+      "strongest_influencer": "Unsupervised DBSCAN cluster distance evaluation identified a statistically significant arrival pattern anomaly.",
+      "triggering_prediction": "DBSCAN Anomaly Engine status 'ANOMALOUS SURGE DETECTED' with a deviation of +39%.",
+      "expected_operational_condition": "Rapid influx of unannounced patients is expected to increase waiting queue pressure over the next hour.",
+      "staff_review_guidance": "Staff should review EMS ambulance diversion status, intake hallway registration readiness, and rapid triage staging.",
+      "disclaimer": "Non-causal model attribution: Feature attributions indicate statistical associations in department telemetry and do not imply direct clinical causality."
+    }
+  },
+  {
+    "id": "rec-forecast-staging",
+    "category": "FLOW",
+    "title": "Pre-Stage Treatment Bays & Restock Triage Supplies Ahead of Peak",
+    "recommendation": "Pre-stock triage supply carts, verify IV pump availability, and prepare treatment rooms prior to the forecasted arrival window.",
+    "priority": "MODERATE",
+    "created_at": "2026-10-06T17:14:31.499853+00:00",
+    "due_time": "05:59 PM",
+    "status": "NEW",
+    "contributing_factors": [
+      "2-Layer Keras LSTM Network (+33%)",
+      "Forecasted Peak Hour (+32%)"
+    ],
+    "source_prediction": "2-Layer Keras LSTM Neural Network",
+    "urgency": "WITHIN 1 HOUR",
+    "reason": "Proactive supply and space staging is projected to reduce bottleneck delays when the forecasted arrival peak occurs.",
+    "explanation_detail": {
+      "detection_rationale": "Upcoming demand surge was detected by the 2-Layer LSTM model predicting 33 arrivals over the next 3 hours.",
+      "contributing_factors": [
+        {
+          "name": "2-Layer Keras LSTM Network",
+          "impact": "increases_pressure",
+          "contribution_score": 33.0,
+          "detail": "33 arrivals projected in next 3-hour window"
+        },
+        {
+          "name": "Forecasted Peak Hour",
+          "impact": "increases_pressure",
+          "contribution_score": 32.0,
+          "detail": "Peak arrival rate of 32 pts/hr expected at 7:00 PM"
+        }
+      ],
+      "strongest_influencer": "LSTM neural network sequence analysis indicates a peak arrival rate of 32 pts/hr at 7:00 PM.",
+      "triggering_prediction": "2-Layer Keras LSTM Neural Network 3-hour forecast (33 arrivals, trend: Increasing).",
+      "expected_operational_condition": "Arrival velocity is projected to increase around 7:00 PM, creating localized intake pressure.",
+      "staff_review_guidance": "Staff should review supply cart stocking, trauma bay readiness, and upcoming shift handoff preparations.",
+      "disclaimer": "Non-causal model attribution: Feature attributions indicate statistical associations in department telemetry and do not imply direct clinical causality."
+    }
+  }
+]

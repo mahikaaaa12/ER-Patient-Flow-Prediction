@@ -40,6 +40,8 @@ class QueryRouter:
         Intent.HIGH_DEMAND_PERIOD,
         Intent.FLOW_PATTERN,
         Intent.GENERAL_STATUS,
+        Intent.OPERATIONAL_COMMAND,
+        Intent.SIMULATION_INQUIRY,
     }
 
     CONVERSATIONAL_INTENTS = {

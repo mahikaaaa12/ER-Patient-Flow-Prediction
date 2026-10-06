@@ -1,8 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Sliders, RefreshCw, CheckCircle2, Play, Activity, Cpu } from "lucide-react";
 import StepperControl from "./StepperControl";
 import { useERContext } from "../../context/ERContext";
 import { useMode } from "../../context/ModeContext";
+
+// Debounce delay in ms - user must stop changing inputs for this long before
+// the context (and orchestrator) are updated.
+const INPUT_DEBOUNCE_MS = 800;
 
 export default function EROperationsControlPanel({ className = "" }) {
   const { isRealMode } = useMode();
@@ -16,16 +20,63 @@ export default function EROperationsControlPanel({ className = "" }) {
     modelStatus,
   } = useERContext();
 
+  // Local draft - tracks what the user is currently editing WITHOUT
+  // immediately broadcasting to ERContext on every stepper click.
   const [form, setForm] = useState(operationalState);
+
+  // Track whether there are unsaved/uncommitted local changes
+  const [hasPendingChange, setHasPendingChange] = useState(false);
+
+  // Debounce timer ref
+  const debounceTimerRef = useRef(null);
+
+  // Keep local form in sync with operationalState when it's changed externally
+  // (e.g. Reset to Baseline, or navigating back to this panel)
+  const prevExtRef = useRef(operationalState);
+  useEffect(() => {
+    if (prevExtRef.current !== operationalState) {
+      prevExtRef.current = operationalState;
+      // Only sync if there are no pending local changes (i.e. external update wins)
+      if (!hasPendingChange) {
+        setForm(operationalState);
+      }
+    }
+  }, [operationalState, hasPendingChange]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
 
   const handleChange = (field, val) => {
     const updated = { ...form, [field]: val };
     setForm(updated);
-    setOperationalState(updated);
+    setHasPendingChange(true);
+
+    // Clear any previous timer
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+
+    // After INPUT_DEBOUNCE_MS of inactivity, commit the change to context
+    debounceTimerRef.current = setTimeout(() => {
+      console.log("[COMMAND CENTER] Input settled → committing to context:", updated);
+      setOperationalState(updated);
+      setHasPendingChange(false);
+      debounceTimerRef.current = null;
+    }, INPUT_DEBOUNCE_MS);
   };
 
   const handleUpdateAll = async (e) => {
     e.preventDefault();
+    // Cancel any pending debounce - explicit submit takes priority
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    console.log("[COMMAND CENTER] Manual 'Update All Predictions' clicked");
+    setOperationalState(form);
+    setHasPendingChange(false);
     await updatePredictions(form);
   };
 
@@ -43,6 +94,11 @@ export default function EROperationsControlPanel({ className = "" }) {
               <span className="rounded border border-blue/30 bg-blue-tint px-2 py-0.5 text-[10px] font-bold text-blue uppercase">
                 Central Command
               </span>
+              {hasPendingChange && (
+                <span className="rounded border border-amber/40 bg-amber-tint px-2 py-0.5 text-[10px] font-bold text-amber-dark uppercase animate-pulse">
+                  Pending…
+                </span>
+              )}
             </div>
             <p className="mt-0.5 text-[12px] text-navy-soft">
               Update central ER operational variables to synchronize all 5 ML prediction engines
@@ -214,3 +270,4 @@ export default function EROperationsControlPanel({ className = "" }) {
     </div>
   );
 }
+

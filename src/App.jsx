@@ -16,6 +16,8 @@ import ErrorBoundary from "./dashboard/components/ErrorBoundary";
 import { ModeProvider } from "./context/ModeContext";
 import { ERProvider } from "./context/ERContext";
 
+import EDCommandOrchestrator from "./dashboard/pages/EDCommandOrchestrator";
+
 function AppContent() {
   const location = useLocation();
   const resetKey = location.pathname;
@@ -26,6 +28,7 @@ function AppContent() {
 
       <Route path="/dashboard" element={<DashboardLayout />}>
         <Route index element={<ErrorBoundary resetKey={resetKey}><Overview /></ErrorBoundary>} />
+        <Route path="orchestrator" element={<ErrorBoundary resetKey={resetKey}><EDCommandOrchestrator /></ErrorBoundary>} />
         <Route path="forecast" element={<ErrorBoundary resetKey={resetKey}><PatientForecast /></ErrorBoundary>} />
         <Route path="waiting-time" element={<ErrorBoundary resetKey={resetKey}><WaitingTime /></ErrorBoundary>} />
         <Route path="crowding-risk" element={<ErrorBoundary resetKey={resetKey}><CrowdingRisk /></ErrorBoundary>} />

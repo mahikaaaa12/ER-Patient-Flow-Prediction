@@ -180,10 +180,45 @@ export const erflowApi = {
   },
 
   /**
+   * ED Command & Workload Orchestrator Analysis
+   */
+  async getOrchestratorAnalysis(hospitalState) {
+    if (hospitalState) {
+      return fetchWithReliability("/api/orchestrator/analyze", {
+        method: "POST",
+        body: JSON.stringify(hospitalState),
+      }, 2, 30000);
+    }
+    return fetchWithReliability("/api/orchestrator/analyze", { method: "GET" }, 2, 30000);
+  },
+
+  /**
+   * ED Command Action Queue Operations
+   */
+  async getActionQueue(hospitalState, filterStatus = "ALL") {
+    const q = filterStatus ? `?filter_status=${encodeURIComponent(filterStatus)}` : "";
+    if (hospitalState) {
+      return fetchWithReliability(`/api/orchestrator/action-queue${q}`, {
+        method: "POST",
+        body: JSON.stringify(hospitalState),
+      }, 2, 30000);
+    }
+    return fetchWithReliability(`/api/orchestrator/action-queue${q}`, { method: "GET" }, 2, 30000);
+  },
+
+  async updateActionStatus(actionId, status) {
+    return fetchWithReliability(`/api/orchestrator/action-queue/${encodeURIComponent(actionId)}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }, 2, 15000);
+  },
+
+  /**
    * Patient Arrival Forecast (Deep Learning LSTM)
    */
-  async getPatientForecast(hospitalState) {
-    return fetchWithReliability("/api/predict/deep-learning", {
+  async getPatientForecast(hospitalState, horizon = "24h") {
+    const query = horizon ? `?horizon=${encodeURIComponent(horizon)}` : "";
+    return fetchWithReliability(`/api/predict/deep-learning${query}`, {
       method: "POST",
       body: JSON.stringify(hospitalState || {}),
     }, 2, 20000);

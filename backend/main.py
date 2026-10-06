@@ -20,6 +20,7 @@ from .routers import (
     unsupervised_router,
     deep_learning_router,
     overview_router,
+    orchestrator_router,
 )
 
 try:
@@ -106,6 +107,7 @@ app.include_router(supervised_router)
 app.include_router(unsupervised_router)
 app.include_router(deep_learning_router)
 app.include_router(overview_router)
+app.include_router(orchestrator_router)
 if chat_router:
     app.include_router(chat_router, prefix="/api")
 

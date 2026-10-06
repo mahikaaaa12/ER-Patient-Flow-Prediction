@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { erflowApi } from "../services/api";
 import { useMode } from "./ModeContext";
 
@@ -85,7 +85,7 @@ export function ERProvider({ children }) {
     }
   };
 
-function generateDemoPredictions(state) {
+function generateDemoPredictions(state, horizon = "24h") {
   const occ = Number(state.occupancy_percent ?? 78);
   const waitPts = Number(state.patients_waiting ?? 24);
   const arrRate = Number(state.arrival_rate ?? 28);
@@ -101,8 +101,81 @@ function generateDemoPredictions(state) {
 
   const patternName = arrRate > 35 ? "High Demand" : arrRate < 18 ? "Low Demand" : "Medium Demand";
 
-  return {
-    forecast: {
+  let forecastObj = {};
+  if (horizon === "7d") {
+    const dailyBase = Math.round(arrRate * 18.0);
+    forecastObj = {
+      horizon: "7d",
+      predicted_peak_time: "Saturday",
+      predicted_peak_rate: Math.round(dailyBase * 1.15),
+      trend: arrRate > 25 ? "Increasing" : "Stable",
+      horizons: {
+        peak_day_volume: Math.round(dailyBase * 1.15),
+        total_7d: Math.round(dailyBase * 7.1),
+        daily_avg: Math.round(dailyBase * 1.01),
+        peak_day: "Saturday",
+      },
+      forecast_cards: [
+        { id: "peak_day", label: "Peak Day Volume", value: Math.round(dailyBase * 1.15), unit: "patients" },
+        { id: "total_7d", label: "7-Day Total Arrivals", value: Math.round(dailyBase * 7.1), unit: "patients" },
+        { id: "daily_avg", label: "Daily Avg Demand", value: Math.round(dailyBase * 1.01), unit: "pts/day" },
+        { id: "peak_day_name", label: "Peak Arrival Day", value: Math.round(dailyBase * 1.15), unit: "Saturday" },
+      ],
+      series: [
+        { t: "Wed", value: Math.round(dailyBase * 0.95), kind: "observed" },
+        { t: "Thu", value: Math.round(dailyBase * 0.98), kind: "observed" },
+        { t: "Fri", value: Math.round(dailyBase * 1.05), kind: "observed" },
+        { t: "Sat", value: Math.round(dailyBase * 1.12), kind: "observed" },
+        { t: "Sun", value: Math.round(dailyBase * 1.08), kind: "observed" },
+        { t: "Mon", value: Math.round(dailyBase * 0.96), kind: "observed" },
+        { t: "Tue", value: Math.round(dailyBase * 0.99), kind: "observed" },
+        { t: "Wed (proj.)", value: Math.round(dailyBase * 1.02), kind: "forecast" },
+        { t: "Thu (proj.)", value: Math.round(dailyBase * 1.04), kind: "forecast" },
+        { t: "Fri (proj.)", value: Math.round(dailyBase * 1.10), kind: "forecast" },
+        { t: "Sat (proj.)", value: Math.round(dailyBase * 1.15), kind: "forecast" },
+        { t: "Sun (proj.)", value: Math.round(dailyBase * 1.11), kind: "forecast" },
+        { t: "Mon (proj.)", value: Math.round(dailyBase * 0.98), kind: "forecast" },
+        { t: "Tue (proj.)", value: Math.round(dailyBase * 1.01), kind: "forecast" },
+      ],
+      model_name: "2-Layer LSTM Neural Network",
+      data_source: "Synthetic Demo 7-Day Forecast Engine",
+      validation_metrics: { mae: 14.2, rmse: 18.5 },
+    };
+  } else if (horizon === "30d") {
+    const dailyBase = Math.round(arrRate * 18.0);
+    const seriesData = [];
+    for (let i = 30; i >= 1; i--) {
+      seriesData.push({ t: `Day -${i}`, value: Math.round(dailyBase * (0.9 + 0.15 * Math.sin(i))), kind: "observed" });
+    }
+    for (let i = 1; i <= 30; i++) {
+      seriesData.push({ t: `Day +${i} (proj.)`, value: Math.round(dailyBase * (0.95 + 0.18 * Math.sin(i + 3))), kind: "forecast" });
+    }
+    forecastObj = {
+      horizon: "30d",
+      predicted_peak_time: "Day +18",
+      predicted_peak_rate: Math.round(dailyBase * 1.18),
+      trend: arrRate > 25 ? "Increasing" : "Stable",
+      horizons: {
+        peak_day_volume: Math.round(dailyBase * 1.18),
+        total_30d: Math.round(dailyBase * 30.2),
+        daily_avg: Math.round(dailyBase * 1.01),
+        busiest_week: "Week 3",
+      },
+      forecast_cards: [
+        { id: "peak_day_30d", label: "Peak Day Volume", value: Math.round(dailyBase * 1.18), unit: "patients" },
+        { id: "total_30d", label: "30-Day Total Volume", value: Math.round(dailyBase * 30.2), unit: "patients" },
+        { id: "daily_avg_30d", label: "30-Day Daily Average", value: Math.round(dailyBase * 1.01), unit: "pts/day" },
+        { id: "busiest_week", label: "Busiest Week Projected", value: Math.round(dailyBase * 1.18), unit: "Week 3" },
+      ],
+      series: seriesData,
+      model_name: "2-Layer LSTM Neural Network",
+      data_source: "Synthetic Demo 30-Day Forecast Engine",
+      validation_metrics: { mae: 28.6, rmse: 35.1 },
+    };
+  } else {
+    // 24h
+    forecastObj = {
+      horizon: "24h",
       predicted_peak_time: "7:00 PM",
       predicted_peak_rate: Math.round(arrRate * 1.2),
       trend: arrRate > 25 ? "Increasing" : "Stable",
@@ -113,27 +186,39 @@ function generateDemoPredictions(state) {
         "24h": Math.round(arrRate * 18.0),
       },
       forecast_cards: [
-        { id: "1h", label: "Next 1 Hour", value: `${Math.round(arrRate * 0.9)}`, unit: "arrivals" },
-        { id: "3h", label: "Next 3 Hours", value: `${Math.round(arrRate * 2.4)}`, unit: "arrivals" },
-        { id: "6h", label: "Next 6 Hours", value: `${Math.round(arrRate * 4.8)}`, unit: "arrivals" },
-        { id: "24h", label: "Next 24 Hours", value: `${Math.round(arrRate * 18.0)}`, unit: "arrivals" },
+        { id: "1h", label: "Next 1 Hour", value: Math.round(arrRate * 0.9), unit: "patients" },
+        { id: "3h", label: "Next 3 Hours", value: Math.round(arrRate * 2.4), unit: "patients" },
+        { id: "6h", label: "Next 6 Hours", value: Math.round(arrRate * 4.8), unit: "patients" },
+        { id: "24h", label: "Next 24 Hours", value: Math.round(arrRate * 18.0), unit: "patients" },
       ],
       series: [
-        { time: "12:00 PM", actual: Math.round(arrRate * 0.7), forecast: null },
-        { time: "1:00 PM", actual: Math.round(arrRate * 0.8), forecast: null },
-        { time: "2:00 PM", actual: Math.round(arrRate * 0.9), forecast: null },
-        { time: "3:00 PM", actual: Math.round(arrRate * 1.0), forecast: null },
-        { time: "4:00 PM", actual: Math.round(arrRate * 1.1), forecast: null },
-        { time: "5:00 PM", actual: Math.round(arrRate * 1.15), forecast: Math.round(arrRate * 1.15) },
-        { time: "6:00 PM", actual: null, forecast: Math.round(arrRate * 1.2) },
-        { time: "7:00 PM", actual: null, forecast: Math.round(arrRate * 1.25) },
-        { time: "8:00 PM", actual: null, forecast: Math.round(arrRate * 1.1) },
-        { time: "9:00 PM", actual: null, forecast: Math.round(arrRate * 0.95) },
+        { t: "6 AM", value: Math.round(arrRate * 0.5), kind: "observed" },
+        { t: "7 AM", value: Math.round(arrRate * 0.6), kind: "observed" },
+        { t: "8 AM", value: Math.round(arrRate * 0.7), kind: "observed" },
+        { t: "9 AM", value: Math.round(arrRate * 0.8), kind: "observed" },
+        { t: "10 AM", value: Math.round(arrRate * 0.85), kind: "observed" },
+        { t: "11 AM", value: Math.round(arrRate * 0.9), kind: "observed" },
+        { t: "12 PM", value: Math.round(arrRate * 0.95), kind: "observed" },
+        { t: "1 PM", value: Math.round(arrRate * 1.0), kind: "observed" },
+        { t: "2 PM", value: Math.round(arrRate * 1.05), kind: "observed" },
+        { t: "3 PM", value: Math.round(arrRate * 1.1), kind: "observed" },
+        { t: "4 PM", value: Math.round(arrRate * 1.12), kind: "observed" },
+        { t: "5 PM", value: Math.round(arrRate * 1.15), kind: "observed" },
+        { t: "6 PM", value: Math.round(arrRate * 1.18), kind: "forecast" },
+        { t: "7 PM", value: Math.round(arrRate * 1.25), kind: "forecast" },
+        { t: "8 PM", value: Math.round(arrRate * 1.20), kind: "forecast" },
+        { t: "9 PM", value: Math.round(arrRate * 1.10), kind: "forecast" },
+        { t: "10 PM", value: Math.round(arrRate * 0.95), kind: "forecast" },
+        { t: "11 PM", value: Math.round(arrRate * 0.80), kind: "forecast" },
       ],
       model_name: "2-Layer LSTM Neural Network",
       data_source: "Synthetic Demo Forecast Engine",
       validation_metrics: { mae: 4.42, rmse: 5.81 },
-    },
+    };
+  }
+
+  return {
+    forecast: forecastObj,
     waiting_time: {
       waiting_time_minutes: finalWaitMin,
       predicted_1h: Math.round(finalWaitMin * 1.1),
@@ -290,7 +375,7 @@ function generateDemoPredictions(state) {
     }
   }, [isRealMode]);
 
-  const value = {
+  const value = useMemo(() => ({
     operationalState,
     setOperationalState,
     predictions,
@@ -302,7 +387,15 @@ function generateDemoPredictions(state) {
     updatePredictions,
     resetToBaseline,
     defaultOperationalState: DEFAULT_OPERATIONAL_STATE,
-  };
+  }), [
+    operationalState,
+    predictions,
+    hasRunPredictions,
+    loading,
+    error,
+    lastUpdated,
+    modelStatus,
+  ]);
 
   return <ERContext.Provider value={value}>{children}</ERContext.Provider>;
 }

@@ -17,6 +17,7 @@ import {
 
 export const NAV_ITEMS = [
   { to: "/dashboard", label: "Overview", icon: LayoutDashboard, end: true },
+  { to: "/dashboard/orchestrator", label: "Operations Command Center", icon: Zap },
   { to: "/dashboard/forecast", label: "Patient Forecast", icon: TrendingUp },
   { to: "/dashboard/waiting-time", label: "Waiting Time", icon: Clock },
   { to: "/dashboard/crowding-risk", label: "Crowding Risk", icon: AlertTriangle },

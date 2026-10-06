@@ -188,6 +188,27 @@ class PredictionService:
             response = self.predict_high_demand_period(input_data)
         elif intent == Intent.FLOW_PATTERN:
             response = self.predict_flow_pattern(input_data)
+        elif intent in (Intent.OPERATIONAL_COMMAND, Intent.SIMULATION_INQUIRY):
+            try:
+                from backend.services.orchestrator_service import orchestrator_service
+                from backend.schemas.hospital_state import HospitalState
+
+                features = dict(input_data.features or {})
+                # Filter features to valid HospitalState attributes
+                valid_fields = set(HospitalState.model_fields.keys())
+                state_kwargs = {k: v for k, v in features.items() if k in valid_fields}
+                h_state = HospitalState(**state_kwargs) if state_kwargs else HospitalState()
+                orch_res = orchestrator_service.analyze_operations(h_state)
+                response = PredictionResponse(
+                    prediction=orch_res.model_dump(),
+                    confidence=0.95,
+                    model_name="EDCommandOrchestratorService",
+                    model_version="1.0.0",
+                    is_available=True,
+                )
+            except Exception as err:
+                logger.error(f"Error executing orchestrator analysis in PredictionService: {err}", exc_info=True)
+                response = self._create_unavailable_response("orchestrator_service", str(err))
         elif intent == Intent.GENERAL_STATUS:
             if self.is_mock_mode:
                 response = PredictionResponse(
@@ -225,7 +246,7 @@ class PredictionService:
                         is_available=True,
                     )
                 else:
-                    response = self._create_unavailable_response("general_status_engine")
+                    response = self._createUnavailableResponse("general_status_engine") if hasattr(self, "_createUnavailableResponse") else self._create_unavailable_response("general_status_engine")
         else:
             return PredictionResult(
                 intent=intent,

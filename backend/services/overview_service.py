@@ -193,16 +193,218 @@ class OverviewService:
         overview = self.get_overview(state)
         q = query_req.question.lower()
 
-        # Dynamic query routing
-        if "busiest" in q or "peak" in q or "when" in q:
+        # Lazy import of orchestrator service to prevent circular dependency
+        from .orchestrator_service import orchestrator_service
+        try:
+            orch = orchestrator_service.analyze_operations(state)
+        except Exception:
+            orch = None
+
+        plevel = orch.pressure_level if orch else "MODERATE"
+        pscore = orch.overall_pressure_score if orch else 50.0
+        w_assess = orch.workload_assessment if orch else None
+        doc_ratio = w_assess.doctor_load_ratio if w_assess else round(state.patients_waiting / max(1.0, state.available_doctors), 1)
+        nurse_ratio = w_assess.nurse_load_ratio if w_assess else round((state.patients_waiting + state.occupancy_percent * 0.35) / max(1.0, state.available_nurses), 1)
+        top_issue = orch.prioritized_issues[0] if orch and orch.prioritized_issues else None
+        top_rec = orch.recommended_actions[0] if orch and orch.recommended_actions else None
+
+        # 1. Biggest Issue / What Needs Attention
+        if any(k in q for k in ["biggest issue", "needs attention", "attention right now", "biggest concern", "primary issue"]):
+            if top_issue and top_rec:
+                expl = top_rec.explanation_detail
+                text = (
+                    f"⚡ **ED Operations Command Center Assessment**:\n\n"
+                    f"**CURRENT DATA**:\n"
+                    f"• **Overall Pressure**: {plevel} ({pscore:.1f}/100 index)\n"
+                    f"• **Top Priority Issue**: [{top_issue.severity}] {top_issue.category} - {top_issue.title}\n"
+                    f"• **Current Telemetry**: Occupancy {state.occupancy_percent:.0f}%, {state.patients_waiting:.0f} waiting, {state.available_beds:.0f} beds available\n\n"
+                    f"**FORECAST**:\n"
+                    f"• **3h Arrival Projection**: {overview.forecast.horizons.get('3h', 36)} patients (Peak: {overview.forecast.predicted_peak_rate} pts/hr at {overview.forecast.predicted_peak_time})\n"
+                    f"• **Wait Time Projection**: {overview.waiting_time.waiting_time_minutes:.0f} minutes average\n\n"
+                    f"**RECOMMENDED OPERATIONAL ACTION**:\n"
+                    f"• **Action**: {top_rec.title}\n"
+                    f"• **Recommended**: {top_rec.recommended_action}\n"
+                    f"• **Urgency**: {top_rec.urgency}\n\n"
+                    f"**SIMULATION**:\n"
+                    f"• Test this intervention (e.g., adding 1 nurse or physician) in the **⚡ Scenario Simulator** page.\n\n"
+                    f"**GENERAL GUIDANCE**:\n"
+                    f"• {expl.staff_review_guidance if expl else 'Review staff shift allocations.'}"
+                )
+            else:
+                text = f"Operational pressure is currently {plevel} ({pscore:.1f}/100 index). All operational metrics remain within standard baseline."
+
+            insights = [
+                AssistantInsightItem(label="Top Concern", value=top_issue.category if top_issue else "OPERATIONS", icon="AlertTriangle", tone="red" if plevel in ["HIGH", "CRITICAL"] else "amber"),
+                AssistantInsightItem(label="Pressure Level", value=plevel, icon="Activity", tone="red" if plevel in ["HIGH", "CRITICAL"] else "teal"),
+                AssistantInsightItem(label="Queue Waiting", value=f"{state.patients_waiting:.0f} pts", icon="Users", tone="blue"),
+                AssistantInsightItem(label="Action Urgency", value=top_rec.urgency if top_rec else "ROUTINE", icon="Clock", tone="amber"),
+            ]
+
+        # 2. Why is Workload High / Under Pressure
+        elif any(k in q for k in ["why is workload", "under pressure", "why is workload high", "workload high", "why pressure"]):
+            text = (
+                f"⚡ **Workload & Pressure Rationale**:\n\n"
+                f"**CURRENT DATA**:\n"
+                f"• **Pressure Level**: {plevel} ({pscore:.1f}/100 index)\n"
+                f"• **Doctor Load Ratio**: {doc_ratio} waiting patients/MD\n"
+                f"• **Nurse Load Ratio**: {nurse_ratio} active patients/RN\n"
+                f"• **Bed Occupancy**: {state.occupancy_percent:.0f}% with {state.patients_waiting:.0f} patients waiting\n\n"
+                f"**FORECAST**:\n"
+                f"• **Arrival Velocity**: {state.arrival_rate:.0f} pts/hr (Projected 3h arrivals: {overview.forecast.horizons.get('3h', 36)})\n"
+                f"• **Expected Wait Time**: {overview.waiting_time.waiting_time_minutes:.0f} minutes (trend: {overview.waiting_time.trend})\n\n"
+                f"**SIMULATION**:\n"
+                f"• Simulate adding staff or expanding bed capacity in the **⚡ Scenario Simulator** to evaluate workload reduction.\n\n"
+                f"**GENERAL GUIDANCE**:\n"
+                f"• Monitor provider shift overlaps and expedite inpatient transfer velocity to reduce bed occupancy."
+            )
+            insights = [
+                AssistantInsightItem(label="Pressure Index", value=f"{pscore:.0f}/100", icon="Activity", tone="red" if pscore > 60 else "amber"),
+                AssistantInsightItem(label="Doctor Ratio", value=f"{doc_ratio} pts/MD", icon="User", tone="blue"),
+                AssistantInsightItem(label="Nurse Ratio", value=f"{nurse_ratio} pts/RN", icon="Users", tone="teal"),
+                AssistantInsightItem(label="Occupancy", value=f"{state.occupancy_percent:.0f}%", icon="Percent", tone="amber"),
+            ]
+
+        # 3. What Should Staff Monitor Next / Upcoming 2 Hours
+        elif any(k in q for k in ["monitor next", "next two hours", "monitor over", "should staff monitor"]):
+            upcoming_level = w_assess.upcoming_3h_workload_level if w_assess else "MODERATE"
+            text = (
+                f"⚡ **Upcoming Workload & Monitoring Trajectory**:\n\n"
+                f"**CURRENT DATA**:\n"
+                f"• **Current Status**: {plevel} Pressure | Arrival Rate: {state.arrival_rate:.0f} pts/hr\n"
+                f"• **Active Triage Queue**: {state.patients_waiting:.0f} patients\n\n"
+                f"**FORECAST**:\n"
+                f"• **Upcoming Workload Trajectory**: {upcoming_level} Risk\n"
+                f"• **Projected Peak**: {overview.forecast.predicted_peak_rate} pts/hr expected around {overview.forecast.predicted_peak_time}\n"
+                f"• **3h Cumulative Demand**: {overview.forecast.horizons.get('3h', 36)} expected arrivals\n"
+                f"• **Wait Time Trajectory**: {overview.waiting_time.waiting_time_minutes:.0f} min (projected 1h: {overview.waiting_time.predicted_1h:.0f} min)\n\n"
+                f"**SIMULATION**:\n"
+                f"• Test pre-staging shift overlaps in the **⚡ Scenario Simulator** ahead of the peak arrival window.\n\n"
+                f"**GENERAL GUIDANCE**:\n"
+                f"• Staff should pre-stock triage supply carts, clear fast-track treatment bays, and monitor incoming EMS ambulance notifications."
+            )
+            insights = [
+                AssistantInsightItem(label="Upcoming Risk", value=upcoming_level, icon="TrendingUp", tone="red" if upcoming_level in ["HIGH", "CRITICAL"] else "amber"),
+                AssistantInsightItem(label="Peak Rate", value=f"{overview.forecast.predicted_peak_rate}/hr", icon="Clock", tone="blue"),
+                AssistantInsightItem(label="Peak Window", value=overview.forecast.predicted_peak_time, icon="Clock", tone="teal"),
+                AssistantInsightItem(label="3h Forecast", value=str(overview.forecast.horizons.get('3h', 36)), icon="Users", tone="amber"),
+            ]
+
+        # 4. Why Triage Capacity Flagged
+        elif any(k in q for k in ["triage capacity", "triage flagged", "why is triage"]):
+            triage_rec = next((r for r in (orch.recommended_actions if orch else []) if r.category == "TRIAGE CAPACITY"), top_rec)
+            expl = triage_rec.explanation_detail if triage_rec else None
+            text = (
+                f"⚡ **Triage Capacity Rationale & Explanation**:\n\n"
+                f"**CURRENT DATA**:\n"
+                f"• **Triage Queue**: {state.patients_waiting:.0f} patients waiting\n"
+                f"• **Current Arrival Velocity**: {state.arrival_rate:.0f} pts/hr\n\n"
+                f"**FORECAST**:\n"
+                f"• **Predicted Average Wait**: {overview.waiting_time.waiting_time_minutes:.0f} minutes (XGBoost Regressor)\n"
+                f"• **Wait Time Trend**: {overview.waiting_time.trend}\n\n"
+                f"**XAI EXPLANATION**:\n"
+                f"• **Why Flagged**: {expl.detection_rationale if expl else 'Queue size exceeds single-triage intake throughput.'}\n"
+                f"• **Strongest Influencer**: {expl.strongest_influencer if expl else 'Patients waiting count.'}\n\n"
+                f"**RECOMMENDED OPERATIONAL ACTION**:\n"
+                f"• **Action**: {triage_rec.title if triage_rec else 'Deploy Auxiliary Triage Screening'}\n"
+                f"• **Details**: {triage_rec.recommended_action if triage_rec else 'Assign a second triage nurse to open fast-track intake.'}\n\n"
+                f"**SIMULATION**:\n"
+                f"• Simulate adding 1 triage nurse in the **⚡ Scenario Simulator** to evaluate queue reduction.\n\n"
+                f"**GENERAL GUIDANCE**:\n"
+                f"• {expl.staff_review_guidance if expl else 'Review triage nurse screening speed and fast-track availability.'}"
+            )
+            insights = [
+                AssistantInsightItem(label="Triage Queue", value=f"{state.patients_waiting:.0f} pts", icon="Users", tone="red"),
+                AssistantInsightItem(label="Predicted Wait", value=f"{overview.waiting_time.waiting_time_minutes:.0f} min", icon="Timer", tone="amber"),
+                AssistantInsightItem(label="Wait Trend", value=overview.waiting_time.trend, icon="TrendingUp", tone="blue"),
+                AssistantInsightItem(label="Rec Action", value="Auxiliary Triage", icon="Activity", tone="teal"),
+            ]
+
+        # 5. Simulate Adding a Nurse
+        elif any(k in q for k in ["simulate adding", "add one nurse", "add a nurse", "simulate nurse"]):
+            text = (
+                f"🧪 **Scenario Simulation Guidance - Staffing Intervention**:\n\n"
+                f"**CURRENT DATA**:\n"
+                f"• **Active Nurses**: {state.available_nurses:.0f} RNs\n"
+                f"• **Current Nurse Load Ratio**: {nurse_ratio} active patients/RN\n"
+                f"• **Current Average Wait Time**: {overview.waiting_time.waiting_time_minutes:.0f} minutes\n\n"
+                f"**SIMULATION (WHAT-IF ANALYSIS)**:\n"
+                f"• **Intervention**: Adding +1 Nurse reduces the Nurse Load Ratio to ~{round((state.patients_waiting + state.occupancy_percent * 0.35) / max(1.0, state.available_nurses + 1), 1)} pts/RN.\n"
+                f"• **Operational Impact**: Improves intake processing speed and reduces expected wait time by ~15-25%.\n"
+                f"• **How to Execute**: Open the **⚡ Scenario Simulator** page or click **[Simulate]** on the Command Center triage recommendation card to compare **BASELINE** vs **SIMULATED INTERVENTION** side-by-side.\n\n"
+                f"**GENERAL GUIDANCE**:\n"
+                f"• All simulated metrics are clearly labeled as `SIMULATION / WHAT-IF` for decision support and do not alter live telemetry."
+            )
+            insights = [
+                AssistantInsightItem(label="Current RNs", value=f"{state.available_nurses:.0f} active", icon="Users", tone="blue"),
+                AssistantInsightItem(label="Nurse Load", value=f"{nurse_ratio} pts/RN", icon="Activity", tone="amber"),
+                AssistantInsightItem(label="Simulated RNs", value=f"{state.available_nurses + 1:.0f} RNs", icon="Sparkles", tone="teal"),
+                AssistantInsightItem(label="Sim Tool", value="Scenario Simulator", icon="Cpu", tone="teal"),
+            ]
+
+        # 6. Highest Pressure Resource / Area
+        elif any(k in q for k in ["highest pressure", "most pressure", "which resource", "highest resource"]):
+            highest_area = top_issue.category if top_issue else ("BED CAPACITY" if state.occupancy_percent > 80 else "TRIAGE QUEUE")
+            text = (
+                f"⚡ **Resource Pressure Breakdown**:\n\n"
+                f"**CURRENT DATA**:\n"
+                f"• **Highest Pressure Area**: **{highest_area}**\n"
+                f"• **Bed Occupancy**: {state.occupancy_percent:.0f}% ({state.available_beds:.0f} beds available)\n"
+                f"• **Waiting Queue**: {state.patients_waiting:.0f} patients waiting\n"
+                f"• **Doctor Load**: {doc_ratio} pts/MD | **Nurse Load**: {nurse_ratio} pts/RN\n\n"
+                f"**FORECAST**:\n"
+                f"• **3h Demand**: {overview.forecast.horizons.get('3h', 36)} expected arrivals\n"
+                f"• **Crowding Score**: {overview.crowding_risk.crowding_score}/100 ({overview.crowding_risk.crowding_level})\n\n"
+                f"**RECOMMENDED ACTION**:\n"
+                f"• **Mitigation**: {top_rec.title if top_rec else 'Reallocate staff to bottleneck area.'}\n\n"
+                f"**SIMULATION**:\n"
+                f"• Simulate reallocating resources in the **⚡ Scenario Simulator** page.\n\n"
+                f"**GENERAL GUIDANCE**:\n"
+                f"• Prioritize supervisor intervention on {highest_area} to relieve department throughput bottlenecks."
+            )
+            insights = [
+                AssistantInsightItem(label="Highest Pressure", value=highest_area, icon="ShieldAlert", tone="red"),
+                AssistantInsightItem(label="Bed Occupancy", value=f"{state.occupancy_percent:.0f}%", icon="Percent", tone="amber"),
+                AssistantInsightItem(label="Waiting Queue", value=f"{state.patients_waiting:.0f} pts", icon="Users", tone="blue"),
+                AssistantInsightItem(label="Crowding Risk", value=overview.crowding_risk.crowding_level, icon="AlertTriangle", tone="red" if overview.crowding_risk.crowding_level in ["HIGH", "CRITICAL"] else "amber"),
+            ]
+
+        # 7. Crowding Risk Factors / Causes
+        elif any(k in q for k in ["crowding risk", "causes of crowding", "contributing to crowding", "why crowding"]):
+            crowd_rec = next((r for r in (orch.recommended_actions if orch else []) if r.category == "BED CAPACITY"), top_rec)
+            expl = crowd_rec.explanation_detail if crowd_rec else None
+            text = (
+                f"⚡ **Crowding Risk & Contributing Factors (XAI Analysis)**:\n\n"
+                f"**CURRENT DATA**:\n"
+                f"• **Crowding Level**: {overview.crowding_risk.crowding_level} (Score: {overview.crowding_risk.crowding_score}/100)\n"
+                f"• **Bed Occupancy**: {state.occupancy_percent:.0f}%\n"
+                f"• **Patients Waiting**: {state.patients_waiting:.0f} patients\n\n"
+                f"**FORECAST**:\n"
+                f"• **Upcoming 3h Influx**: {overview.forecast.horizons.get('3h', 36)} expected arrivals\n\n"
+                f"**XAI TREE SHAP CONTRIBUTING FACTORS**:\n"
+                f"• **Primary Rationale**: {expl.detection_rationale if expl else 'High bed occupancy correlated with rising arrival velocity.'}\n"
+                f"• **Strongest Influencer**: {expl.strongest_influencer if expl else 'Bed Occupancy Percent.'}\n\n"
+                f"**SIMULATION**:\n"
+                f"• Test expanding bed availability or adding discharge lounge bays in the **⚡ Scenario Simulator**.\n\n"
+                f"**GENERAL GUIDANCE**:\n"
+                f"• {expl.staff_review_guidance if expl else 'Expedite inpatient bed turnover and discharge processing.'}"
+            )
+            insights = [
+                AssistantInsightItem(label="Crowding Score", value=f"{overview.crowding_risk.crowding_score}/100", icon="AlertTriangle", tone="red"),
+                AssistantInsightItem(label="Bed Occupancy", value=f"{state.occupancy_percent:.0f}%", icon="Activity", tone="amber"),
+                AssistantInsightItem(label="Waiting Queue", value=str(int(state.patients_waiting)), icon="Users", tone="blue"),
+                AssistantInsightItem(label="Available Beds", value=str(int(state.available_beds)), icon="Activity", tone="teal"),
+            ]
+
+        # 8. Standard Fallback Queries (busiest, wait times, surge, flow, general)
+        elif "busiest" in q or "peak" in q or "when" in q:
             text = (
                 f"Patient arrivals are expected to peak around {overview.forecast.predicted_peak_time} "
                 f"with an arrival velocity of {overview.forecast.predicted_peak_rate} patients/hour. "
-                f"The next 3-hour projection indicates {overview.forecast.horizons['3h']} cumulative arrivals, "
+                f"The next 3-hour projection indicates {overview.forecast.horizons.get('3h', 36)} cumulative arrivals, "
                 f"bringing crowding risk to {overview.crowding_risk.crowding_level}."
             )
             insights = [
-                AssistantInsightItem(label="Expected Arrivals", value=str(overview.forecast.horizons["3h"]), icon="Users", tone="blue"),
+                AssistantInsightItem(label="Expected Arrivals", value=str(overview.forecast.horizons.get('3h', 36)), icon="Users", tone="blue"),
                 AssistantInsightItem(label="Peak Time", value=overview.forecast.predicted_peak_time, icon="Clock", tone="teal"),
                 AssistantInsightItem(label="Crowding Risk", value=overview.crowding_risk.crowding_level, icon="AlertTriangle", tone="red" if overview.crowding_risk.crowding_level in ["HIGH", "CRITICAL"] else "amber"),
                 AssistantInsightItem(label="Expected Wait", value=f"{overview.waiting_time.waiting_time_minutes:.0f} min", icon="Timer", tone="amber"),
@@ -242,28 +444,26 @@ class OverviewService:
                 AssistantInsightItem(label="Peak Time", value=overview.forecast.predicted_peak_time, icon="Clock", tone="amber"),
                 AssistantInsightItem(label="Crowding Risk", value=overview.crowding_risk.crowding_level, icon="AlertTriangle", tone="red" if overview.crowding_risk.crowding_level in ["HIGH", "CRITICAL"] else "amber"),
             ]
-        elif "crowding" in q or "cause" in q or "risk" in q:
-            text = (
-                f"Crowding risk is {overview.crowding_risk.crowding_level} with an index of {overview.crowding_risk.crowding_score}/100. "
-                f"Key drivers are current occupancy ({state.occupancy_percent:.0f}%), {state.patients_waiting:.0f} waiting patients, "
-                f"and forecasted arrivals of {overview.forecast.horizons['3h']} patients over the next 3 hours."
-            )
-            insights = [
-                AssistantInsightItem(label="Crowding Score", value=f"{overview.crowding_risk.crowding_score}/100", icon="AlertTriangle", tone="red"),
-                AssistantInsightItem(label="Bed Occupancy", value=f"{state.occupancy_percent:.0f}%", icon="Activity", tone="amber"),
-                AssistantInsightItem(label="Patients Waiting", value=str(int(state.patients_waiting)), icon="Users", tone="blue"),
-                AssistantInsightItem(label="Available Beds", value=str(int(state.available_beds)), icon="Activity", tone="teal"),
-            ]
         else:
             text = (
-                f"Operational Status: The ER is experiencing {overview.flow_pattern.pattern_name.lower()} conditions. "
-                f"Predicted arrivals over next 3h: {overview.forecast.horizons['3h']}. Average wait time: {overview.waiting_time.waiting_time_minutes:.0f} min. "
-                f"Overall crowding level: {overview.crowding_risk.crowding_level}."
+                f"⚡ **Operational ER Command Status**:\n\n"
+                f"**CURRENT DATA**:\n"
+                f"• Pressure Level: {plevel} ({pscore:.0f}/100 index)\n"
+                f"• Bed Occupancy: {state.occupancy_percent:.0f}%\n"
+                f"• Patients Waiting: {state.patients_waiting:.0f} patients\n\n"
+                f"**FORECAST**:\n"
+                f"• Predicted 3h Arrivals: {overview.forecast.horizons.get('3h', 36)}\n"
+                f"• Average Wait Time: {overview.waiting_time.waiting_time_minutes:.0f} min\n"
+                f"• Crowding Risk: {overview.crowding_risk.crowding_level}\n\n"
+                f"**SIMULATION**:\n"
+                f"• Run scenario simulations on the **⚡ Scenario Simulator** page.\n\n"
+                f"**GENERAL GUIDANCE**:\n"
+                f"• Monitor triage throughput and provider shift availability."
             )
             insights = [
                 AssistantInsightItem(label="Wait Time", value=f"{overview.waiting_time.waiting_time_minutes:.0f} min", icon="Timer", tone="amber"),
                 AssistantInsightItem(label="Crowding", value=overview.crowding_risk.crowding_level, icon="AlertTriangle", tone="red" if overview.crowding_risk.crowding_level in ["HIGH", "CRITICAL"] else "teal"),
-                AssistantInsightItem(label="3h Forecast", value=str(overview.forecast.horizons["3h"]), icon="Users", tone="blue"),
+                AssistantInsightItem(label="3h Forecast", value=str(overview.forecast.horizons.get('3h', 36)), icon="Users", tone="blue"),
                 AssistantInsightItem(label="Pattern", value=overview.flow_pattern.pattern_name, icon="Activity", tone="teal"),
             ]
 

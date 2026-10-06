@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
@@ -7,6 +8,13 @@ import {
   RefreshCw,
   RotateCcw,
   Play,
+  Zap,
+  Sliders,
+  CheckCircle2,
+  Info,
+  ShieldAlert,
+  Users,
+  Clock,
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
@@ -111,6 +119,8 @@ function computeDemoPredictions(controls) {
   ];
 
   return {
+    overall_pressure_score: score,
+    pressure_level: level,
     waiting_time:    { waiting_time_minutes: waitTime, trend: arr > 30 || wait > 25 ? "Increasing" : "Stable", explanation: { top_factors } },
     crowding_risk:   { crowding_level: level, crowding_score: score, explanation: { top_factors } },
     flow_pattern:    { pattern_name, cluster_id },
@@ -127,20 +137,27 @@ function crowdingTone(level) {
   return "green";
 }
 
-function DeltaTag({ diff, unit = "" }) {
+function DeltaTag({ diff, unit = "", isReverseGood = false }) {
   if (diff === null || diff === undefined) return null;
   const isUp = diff > 0;
   const isDown = diff < 0;
-  const cls = isUp ? "text-amber-dark" : isDown ? "text-teal" : "text-navy-muted";
+
+  // For waiting time or pressure score, negative diff (decrease) is good (teal/green)
+  let cls = "text-navy-muted";
+  if (isReverseGood) {
+    cls = isDown ? "text-teal font-bold" : isUp ? "text-amber-dark font-bold" : "text-navy-muted";
+  } else {
+    cls = isUp ? "text-amber-dark font-bold" : isDown ? "text-teal font-bold" : "text-navy-muted";
+  }
+
   return (
-    <span className={`inline-flex items-center gap-0.5 text-[11.5px] font-bold ${cls}`}>
+    <span className={`inline-flex items-center gap-0.5 text-[11.5px] ${cls}`}>
       {isUp ? <ArrowUpRight className="h-3 w-3" /> : isDown ? <ArrowDownRight className="h-3 w-3" /> : null}
       {diff > 0 ? `+${diff}` : diff}{unit}
     </span>
   );
 }
 
-// ─── Compact baseline row ─────────────────────────────────────────────────────
 function BaselineRow({ label, value }) {
   return (
     <div className="flex items-center justify-between border-b border-border py-2 last:border-b-0">
@@ -150,15 +167,14 @@ function BaselineRow({ label, value }) {
   );
 }
 
-// ─── Comparison table row ─────────────────────────────────────────────────────
-function CompareRow({ label, baseline, scenario, diff, unit = "", diffUnit = "", isLast = false }) {
+function CompareRow({ label, baseline, scenario, diff, unit = "", diffUnit = "", isReverseGood = false, isLast = false }) {
   return (
     <div className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 py-2.5 ${isLast ? "" : "border-b border-border"}`}>
       <span className="text-[12.5px] font-medium text-navy-soft">{label}</span>
       <span className="font-mono text-[12.5px] text-navy-muted text-right">{baseline}{unit}</span>
       <span className="font-mono text-[13px] font-bold text-navy text-right">{scenario}{unit}</span>
       <div className="text-right">
-        <DeltaTag diff={diff} unit={diffUnit} />
+        <DeltaTag diff={diff} unit={diffUnit} isReverseGood={isReverseGood} />
       </div>
     </div>
   );
@@ -166,46 +182,77 @@ function CompareRow({ label, baseline, scenario, diff, unit = "", diffUnit = "",
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ScenarioSimulator() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { isRealMode, isDemoMode } = useMode();
   const { predictions, operationalState } = useERContext();
 
   const BASELINE_STATE = operationalState;
-  const [baselineData, setBaselineData]     = useState(predictions);
-  const [scenarioData, setScenarioData]     = useState(null);
-  const [loadingScenario, setLoadingScenario] = useState(false);
-  const [apiError, setApiError]             = useState(null);
-  const [activePreset, setActivePreset]     = useState("custom");
-  const [scenarioControls, setScenarioControls] = useState(BASELINE_STATE);
 
-  // Initialise baseline predictions
+  // Check if opened from Orchestrator recommendation simulation button
+  const passedIntervention = location.state?.intervention || null;
+  const passedSuggestedState = location.state?.suggestedState || null;
+
+  const [baselineData, setBaselineData] = useState(predictions);
+  const [baselineOrch, setBaselineOrch] = useState(null);
+  const [scenarioData, setScenarioData] = useState(null);
+  const [scenarioOrch, setScenarioOrch] = useState(null);
+  const [loadingScenario, setLoadingScenario] = useState(false);
+  const [apiError, setApiError] = useState(null);
+  const [activePreset, setActivePreset] = useState(passedIntervention ? "intervention" : "custom");
+  const [scenarioControls, setScenarioControls] = useState(passedSuggestedState || BASELINE_STATE);
+
+  // Initialise baseline predictions & orchestrator pressure score
   useEffect(() => {
     let alive = true;
     async function init() {
-      if (predictions) { setBaselineData(predictions); return; }
+      if (predictions) { setBaselineData(predictions); }
       try {
-        const res = isRealMode
-          ? await erflowApi.getDashboardOverview(BASELINE_STATE)
-          : computeDemoPredictions(BASELINE_STATE);
-        if (alive) setBaselineData(res);
+        if (isRealMode) {
+          const [overviewRes, orchRes] = await Promise.all([
+            erflowApi.getDashboardOverview(BASELINE_STATE),
+            erflowApi.getOrchestratorAnalysis(BASELINE_STATE).catch(() => null),
+          ]);
+          if (alive) {
+            setBaselineData(overviewRes);
+            if (orchRes) setBaselineOrch(orchRes);
+          }
+        } else {
+          const demoRes = computeDemoPredictions(BASELINE_STATE);
+          if (alive) {
+            setBaselineData(demoRes);
+            setBaselineOrch(demoRes);
+          }
+        }
       } catch { /* keep null */ }
     }
     init();
     return () => { alive = false; };
   }, [isRealMode, predictions, operationalState]);
 
-  // Run on mount / mode change
-  useEffect(() => { runSimulation(scenarioControls); }, [isRealMode]);
+  // Run initial simulation on mount or mode change
+  useEffect(() => {
+    runSimulation(scenarioControls);
+  }, [isRealMode]);
 
   async function runSimulation(controls = scenarioControls) {
     setLoadingScenario(true);
     setApiError(null);
     try {
-      const res = isRealMode
-        ? await erflowApi.getDashboardOverview(controls)
-        : computeDemoPredictions(controls);
-      setScenarioData(res);
+      if (isRealMode) {
+        const [overviewRes, orchRes] = await Promise.all([
+          erflowApi.getDashboardOverview(controls),
+          erflowApi.getOrchestratorAnalysis(controls).catch(() => null),
+        ]);
+        setScenarioData(overviewRes);
+        if (orchRes) setScenarioOrch(orchRes);
+      } else {
+        const demoRes = computeDemoPredictions(controls);
+        setScenarioData(demoRes);
+        setScenarioOrch(demoRes);
+      }
     } catch (err) {
-      setApiError("Simulation unavailable — ML service offline.");
+      setApiError("Simulation service temporarily unavailable.");
     } finally {
       setLoadingScenario(false);
     }
@@ -227,22 +274,37 @@ export default function ScenarioSimulator() {
     setScenarioControls((prev) => ({ ...prev, [field]: val }));
 
   // ── Derived comparison values ──
-  const curWait  = baselineData?.waiting_time?.waiting_time_minutes != null ? Math.round(baselineData.waiting_time.waiting_time_minutes) : null;
-  const scnWait  = scenarioData?.waiting_time?.waiting_time_minutes != null ? Math.round(scenarioData.waiting_time.waiting_time_minutes) : null;
+  const curWait = baselineData?.waiting_time?.waiting_time_minutes != null ? Math.round(baselineData.waiting_time.waiting_time_minutes) : null;
+  const scnWait = scenarioData?.waiting_time?.waiting_time_minutes != null ? Math.round(scenarioData.waiting_time.waiting_time_minutes) : null;
   const diffWait = curWait != null && scnWait != null ? scnWait - curWait : null;
+  const waitImprovePct = curWait && scnWait ? Math.round(((curWait - scnWait) / curWait) * 100) : null;
 
-  const curCrowd  = baselineData?.crowding_risk?.crowding_level ?? "--";
-  const scnCrowd  = scenarioData?.crowding_risk?.crowding_level ?? "--";
-  const curScore  = baselineData?.crowding_risk?.crowding_score ?? null;
-  const scnScore  = scenarioData?.crowding_risk?.crowding_score ?? null;
+  const curCrowd = baselineData?.crowding_risk?.crowding_level ?? "--";
+  const scnCrowd = scenarioData?.crowding_risk?.crowding_level ?? "--";
+  const curScore = baselineData?.crowding_risk?.crowding_score ?? null;
+  const scnScore = scenarioData?.crowding_risk?.crowding_score ?? null;
   const diffScore = curScore != null && scnScore != null ? scnScore - curScore : null;
 
-  const curArr  = BASELINE_STATE.arrival_rate;
-  const scnArr  = scenarioControls.arrival_rate;
+  // Pressure score comparison
+  const curPressure = baselineOrch?.overall_pressure_score ?? baselineData?.crowding_risk?.crowding_score ?? 68.5;
+  const scnPressure = scenarioOrch?.overall_pressure_score ?? scenarioData?.crowding_risk?.crowding_score ?? 54.0;
+  const diffPressure = scnPressure != null && curPressure != null ? Number((scnPressure - curPressure).toFixed(1)) : null;
+
+  // Staff Ratios
+  const curDocRatio = Number((BASELINE_STATE.patients_waiting / Math.max(1, BASELINE_STATE.available_doctors)).toFixed(1));
+  const scnDocRatio = Number((scenarioControls.patients_waiting / Math.max(1, scenarioControls.available_doctors)).toFixed(1));
+  const diffDocRatio = Number((scnDocRatio - curDocRatio).toFixed(1));
+
+  const curNurseRatio = Number(((BASELINE_STATE.patients_waiting + (BASELINE_STATE.occupancy_percent / 100) * 35) / Math.max(1, BASELINE_STATE.available_nurses)).toFixed(1));
+  const scnNurseRatio = Number(((scenarioControls.patients_waiting + (scenarioControls.occupancy_percent / 100) * 35) / Math.max(1, scenarioControls.available_nurses)).toFixed(1));
+  const diffNurseRatio = Number((scnNurseRatio - curNurseRatio).toFixed(1));
+
+  const curArr = BASELINE_STATE.arrival_rate;
+  const scnArr = scenarioControls.arrival_rate;
   const diffArr = scnArr - curArr;
 
-  const curFlow  = baselineData?.flow_pattern?.pattern_name ?? "--";
-  const scnFlow  = scenarioData?.flow_pattern?.pattern_name ?? "--";
+  const curFlow = baselineData?.flow_pattern?.pattern_name ?? "--";
+  const scnFlow = scenarioData?.flow_pattern?.pattern_name ?? "--";
 
   const curSurge = baselineData?.surge_detection?.is_surge ? "Surge" : "Normal";
   const scnSurge = scenarioData?.surge_detection?.is_surge ? "Surge" : "Normal";
@@ -252,31 +314,13 @@ export default function ScenarioSimulator() {
     scenarioData?.crowding_risk?.explanation?.top_factors ||
     [];
 
-  // Interpretation text
-  const interpretationText = (() => {
-    if (!scenarioData) return null;
-    const parts = [];
-    if (diffWait !== null && Math.abs(diffWait) >= 1) {
-      parts.push(`Expected waiting time is projected to ${diffWait > 0 ? "increase" : "decrease"} by approximately ${Math.abs(diffWait)} minutes compared to current baseline conditions.`);
-    }
-    if (scnScore !== null && curScore !== null) {
-      if (diffScore > 10) parts.push(`Crowding risk score rises from ${curScore} to ${scnScore} — a ${diffScore}-point increase that places the department in ${scnCrowd} territory.`);
-      else if (diffScore < -10) parts.push(`Crowding risk score improves from ${curScore} to ${scnScore}, reducing departmental strain.`);
-    }
-    if (scenarioData?.surge_detection?.is_surge && !baselineData?.surge_detection?.is_surge) {
-      parts.push("An arrival surge anomaly would be triggered under these conditions. Surge mitigation protocols should be considered.");
-    }
-    if (parts.length === 0) return "Projected outcomes remain within expected operational parameters under the current scenario configuration.";
-    return parts.join(" ");
-  })();
-
   return (
     <div className="flex flex-col gap-6">
-      {/* ── Page Header ─────────────────────────────────────────────────────── */}
+      {/* Page Header */}
       <PageHeader
-        section="SIMULATION"
+        section="SIMULATION ENGINE"
         title="ER Scenario Simulator"
-        subtitle="Explore how changes in ER conditions could affect waiting times and crowding risk."
+        subtitle="Test operational interventions, evaluate baseline vs. what-if scenarios, and measure projected workload impact."
         action={<ModelBadge model="Multi-Model Scenario Engine" />}
       />
 
@@ -298,10 +342,52 @@ export default function ScenarioSimulator() {
         />
       )}
 
-      {/* ── STEP 1 + 2: Baseline & Scenario Inputs (side-by-side) ─────────── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+      {/* SPECIAL INTERVENTION BANNER (When launched from Orchestrator Recommendation) */}
+      {passedIntervention && (
+        <div className="rounded-lg border border-blue/40 bg-blue-tint/60 p-4 shadow-soft">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-blue/20 pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue text-white font-bold">
+                ⚡
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded bg-blue px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+                    SIMULATION / WHAT-IF INTERVENTION
+                  </span>
+                  <span className="font-mono text-[11px] font-bold text-blue uppercase">
+                    {passedIntervention.category}
+                  </span>
+                </div>
+                <h3 className="text-[15px] font-bold text-navy mt-0.5">
+                  Testing Recommendation: {passedIntervention.title}
+                </h3>
+              </div>
+            </div>
 
-        {/* ── STEP 1: CURRENT BASELINE ──────────────────────────────────────── */}
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/orchestrator")}
+              className="inline-flex items-center gap-1 text-[12px] font-semibold text-blue hover:text-blue-dark"
+            >
+              ← Back to Command Center
+            </button>
+          </div>
+
+          <div className="mt-3 text-[12.5px] text-navy">
+            <p className="font-medium">
+              <strong className="text-blue-dark">Suggested Action:</strong> {passedIntervention.recommended_action}
+            </p>
+            <p className="mt-1 text-[11.5px] text-navy-soft">
+              Scenario controls below have been pre-populated with suggested intervention deltas. Click <strong>"Run Scenario"</strong> to evaluate projected workload improvement.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 1 & STEP 2: Baseline vs Scenario Inputs */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* STEP 1: CURRENT BASELINE */}
         <div className="lg:col-span-4">
           <div className="rounded-md border border-border bg-surface p-5 shadow-soft h-full flex flex-col">
             <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
@@ -311,39 +397,18 @@ export default function ScenarioSimulator() {
                 </span>
                 <h3 className="text-[14px] font-bold text-navy">Current Baseline</h3>
               </div>
-              <StatusBadge label="Live Conditions" tone="teal" />
+              <StatusBadge label="Live Telemetry" tone="teal" />
             </div>
 
             <div className="flex-1 flex flex-col justify-between">
               <div>
-                <BaselineRow
-                  label="Occupancy"
-                  value={`${BASELINE_STATE.occupancy_percent}%`}
-                />
-                <BaselineRow
-                  label="Patients waiting"
-                  value={`${BASELINE_STATE.patients_waiting} pts`}
-                />
-                <BaselineRow
-                  label="Available beds"
-                  value={`${BASELINE_STATE.available_beds} beds`}
-                />
-                <BaselineRow
-                  label="Active physicians"
-                  value={`${BASELINE_STATE.available_doctors} MD/DO`}
-                />
-                <BaselineRow
-                  label="Active nurses"
-                  value={`${BASELINE_STATE.available_nurses} RN`}
-                />
-                <BaselineRow
-                  label="Arrival velocity"
-                  value={`${BASELINE_STATE.arrival_rate} pts/hr`}
-                />
-                <BaselineRow
-                  label="Acuity level"
-                  value={`ESI ${BASELINE_STATE.severity_level?.toFixed(1)}`}
-                />
+                <BaselineRow label="Occupancy" value={`${BASELINE_STATE.occupancy_percent}%`} />
+                <BaselineRow label="Patients waiting" value={`${BASELINE_STATE.patients_waiting} pts`} />
+                <BaselineRow label="Available beds" value={`${BASELINE_STATE.available_beds} beds`} />
+                <BaselineRow label="Active physicians" value={`${BASELINE_STATE.available_doctors} MD/DO`} />
+                <BaselineRow label="Active nurses" value={`${BASELINE_STATE.available_nurses} RN`} />
+                <BaselineRow label="Arrival velocity" value={`${BASELINE_STATE.arrival_rate} pts/hr`} />
+                <BaselineRow label="Acuity level" value={`ESI ${BASELINE_STATE.severity_level?.toFixed(1)}`} />
               </div>
 
               <div className="mt-4 pt-3 border-t border-border grid grid-cols-2 gap-2">
@@ -354,7 +419,7 @@ export default function ScenarioSimulator() {
                   </span>
                 </div>
                 <div className="rounded border border-border bg-bg p-2.5">
-                  <span className="text-[10.5px] font-semibold text-navy-soft block">Crowding</span>
+                  <span className="text-[10.5px] font-semibold text-navy-soft block">Crowding Risk</span>
                   <span className="font-mono text-base font-bold text-navy">{curCrowd}</span>
                 </div>
               </div>
@@ -362,7 +427,7 @@ export default function ScenarioSimulator() {
           </div>
         </div>
 
-        {/* ── STEP 2: SCENARIO CONDITIONS ───────────────────────────────────── */}
+        {/* STEP 2: SCENARIO INTERVENTION CONTROLS */}
         <div className="lg:col-span-8">
           <div className="rounded-md border border-border bg-surface p-5 shadow-soft h-full flex flex-col">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-border pb-3 mb-4">
@@ -370,9 +435,9 @@ export default function ScenarioSimulator() {
                 <span className="text-[10.5px] font-bold uppercase tracking-wider text-navy-soft block">
                   STEP 2
                 </span>
-                <h3 className="text-[14px] font-bold text-navy">Scenario Conditions</h3>
+                <h3 className="text-[14px] font-bold text-navy">Simulated Intervention Controls</h3>
                 <p className="text-[12px] text-navy-muted mt-0.5">
-                  Adjust operational variables to define the scenario to evaluate.
+                  Modify staffing, bed capacity, or queue parameters to simulate operational changes.
                 </p>
               </div>
 
@@ -405,11 +470,25 @@ export default function ScenarioSimulator() {
             {/* Input grid */}
             <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 flex-1">
               <StepperControl
-                label="Expected Arrivals"
-                unit="pts/hr"
-                value={scenarioControls.arrival_rate}
-                onChange={(v) => updateControl("arrival_rate", v)}
-                min={0} max={100} step={1}
+                label="Available Physicians"
+                unit="MD"
+                value={scenarioControls.available_doctors}
+                onChange={(v) => updateControl("available_doctors", v)}
+                min={1} max={25} step={1}
+              />
+              <StepperControl
+                label="Available Nurses"
+                unit="RN"
+                value={scenarioControls.available_nurses}
+                onChange={(v) => updateControl("available_nurses", v)}
+                min={1} max={40} step={1}
+              />
+              <StepperControl
+                label="Available Beds"
+                unit="beds"
+                value={scenarioControls.available_beds}
+                onChange={(v) => updateControl("available_beds", v)}
+                min={0} max={50} step={1}
               />
               <StepperControl
                 label="Patients Waiting"
@@ -426,25 +505,11 @@ export default function ScenarioSimulator() {
                 min={0} max={100} step={1}
               />
               <StepperControl
-                label="Available Beds"
-                unit="beds"
-                value={scenarioControls.available_beds}
-                onChange={(v) => updateControl("available_beds", v)}
-                min={0} max={50} step={1}
-              />
-              <StepperControl
-                label="Available Physicians"
-                unit="MD"
-                value={scenarioControls.available_doctors}
-                onChange={(v) => updateControl("available_doctors", v)}
-                min={1} max={25} step={1}
-              />
-              <StepperControl
-                label="Available Nurses"
-                unit="RN"
-                value={scenarioControls.available_nurses}
-                onChange={(v) => updateControl("available_nurses", v)}
-                min={1} max={40} step={1}
+                label="Expected Arrivals"
+                unit="pts/hr"
+                value={scenarioControls.arrival_rate}
+                onChange={(v) => updateControl("arrival_rate", v)}
+                min={0} max={100} step={1}
               />
               <StepperControl
                 label="Patient Acuity"
@@ -462,14 +527,14 @@ export default function ScenarioSimulator() {
               />
             </div>
 
-            {/* ── STEP 3: RUN SIMULATION ───────────────────────────────────── */}
+            {/* STEP 3: RUN SIMULATION */}
             <div className="mt-5 pt-4 border-t border-border flex items-center justify-between gap-4">
-              <div>
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-navy-soft block">STEP 3</span>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-amber-tint border border-amber/30 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-dark">
+                  SIMULATION / WHAT-IF
+                </span>
                 <p className="text-[12px] text-navy-muted">
-                  {activePreset !== "custom" && PRESET_SCENARIOS[activePreset]
-                    ? `Preset: ${PRESET_SCENARIOS[activePreset].label} — ${PRESET_SCENARIOS[activePreset].description}`
-                    : "Custom scenario configured. Run to evaluate projected impact."}
+                  Simulated values are model projections for operational planning.
                 </p>
               </div>
               <button
@@ -495,26 +560,63 @@ export default function ScenarioSimulator() {
         </div>
       </div>
 
-      {/* ── STEP 4: PROJECTED IMPACT ─────────────────────────────────────────── */}
+      {/* STEP 4: PROJECTED IMPACT & BASELINE VS SIMULATION COMPARISON */}
       {scenarioData && (
         <div className="flex flex-col gap-5">
+          {/* POTENTIAL IMPROVEMENT SUMMARY BANNER */}
+          <div className="rounded-lg border border-teal/40 bg-teal-tint/50 p-4 shadow-soft">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal text-white">
+                  <TrendingUp className="h-5 w-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-teal-dark">
+                      POTENTIAL OPERATIONAL IMPROVEMENT
+                    </span>
+                    <span className="rounded bg-teal/20 px-2 py-0.5 font-mono text-[10px] font-bold text-teal-dark">
+                      SIMULATION / WHAT-IF
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-navy mt-0.5">
+                    Operational Strain Reduction Summary
+                  </h3>
+                </div>
+              </div>
 
-          {/* Section label */}
-          <div className="flex items-center gap-3">
-            <span className="text-[10.5px] font-bold uppercase tracking-wider text-navy-soft">STEP 4</span>
-            <div className="flex-1 border-t border-border" />
+              {diffWait !== null && (
+                <div className="flex items-center gap-4 border-t border-teal/20 pt-2 sm:border-t-0 sm:pt-0">
+                  <div className="text-right">
+                    <span className="text-[11px] font-semibold text-navy-soft block">Wait Time Delta</span>
+                    <span className="font-mono text-lg font-bold text-teal">
+                      {diffWait < 0 ? `↓ ${Math.abs(diffWait)} min` : diffWait > 0 ? `↑ ${diffWait} min` : "No Change"}
+                      {waitImprovePct !== null && diffWait < 0 && (
+                        <span className="text-xs font-semibold text-teal-dark ml-1">({waitImprovePct}% improvement)</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="text-right border-l border-teal/20 pl-4">
+                    <span className="text-[11px] font-semibold text-navy-soft block">Pressure Index</span>
+                    <span className="font-mono text-lg font-bold text-navy">
+                      {curPressure} → {scnPressure}
+                      <span className="text-xs font-semibold text-teal-dark ml-1">({diffPressure} pts)</span>
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* ── Primary impact metrics ───────────────────────────────────────── */}
+          {/* Primary impact metrics */}
           <div className="rounded-md border border-border bg-surface p-5 shadow-soft">
             <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
               <h3 className="text-[14px] font-bold uppercase tracking-wider text-navy">
                 Projected Operational Impact
               </h3>
-              <StatusBadge
-                label={isRealMode ? "Live ML Evaluation" : "Demo Engine"}
-                tone={isRealMode ? "teal" : "amber"}
-              />
+              <span className="rounded border border-amber/30 bg-amber-tint px-2.5 py-1 text-[11px] font-mono font-bold text-amber-dark uppercase">
+                SIMULATION / WHAT-IF
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -526,7 +628,7 @@ export default function ScenarioSimulator() {
                 </span>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[11px] text-navy-muted">Baseline {curWait != null ? `${curWait} min` : "--"}</span>
-                  <DeltaTag diff={diffWait} unit=" min" />
+                  <DeltaTag diff={diffWait} unit=" min" isReverseGood={true} />
                 </div>
               </div>
 
@@ -538,7 +640,7 @@ export default function ScenarioSimulator() {
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[11px] text-navy-muted">Baseline {curCrowd}</span>
-                  <DeltaTag diff={diffScore} unit=" pts" />
+                  <DeltaTag diff={diffScore} unit=" pts" isReverseGood={true} />
                 </div>
               </div>
 
@@ -579,7 +681,7 @@ export default function ScenarioSimulator() {
             </div>
           </div>
 
-          {/* ── Side-by-side comparison table ───────────────────────────────── */}
+          {/* Side-by-side comparison table */}
           <div className="rounded-md border border-border bg-surface p-5 shadow-soft">
             <h3 className="text-[14px] font-bold uppercase tracking-wider text-navy border-b border-border pb-3 mb-1">
               Baseline vs Scenario Comparison
@@ -589,58 +691,86 @@ export default function ScenarioSimulator() {
             <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 py-2 border-b border-border">
               <span className="text-[11px] font-bold uppercase tracking-wider text-navy-soft">Metric</span>
               <span className="text-[11px] font-bold uppercase tracking-wider text-navy-soft text-right">Baseline</span>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-navy-soft text-right">Scenario</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-navy-soft text-right">Scenario (What-If)</span>
               <span className="text-[11px] font-bold uppercase tracking-wider text-navy-soft text-right">Change</span>
             </div>
 
             <CompareRow
-              label="Expected waiting time"
+              label="Overall Department Pressure Score"
+              baseline={curPressure}
+              scenario={scnPressure}
+              diff={diffPressure}
+              unit=" / 100"
+              diffUnit=" pts"
+              isReverseGood={true}
+            />
+
+            <CompareRow
+              label="Expected Waiting Time"
               baseline={curWait != null ? curWait : "--"}
               scenario={scnWait != null ? scnWait : "--"}
               diff={diffWait}
               unit=" min"
               diffUnit=" min"
+              isReverseGood={true}
             />
+
             <CompareRow
-              label="Crowding risk score"
+              label="Crowding Risk Score"
               baseline={curScore != null ? curScore : "--"}
               scenario={scnScore != null ? scnScore : "--"}
               diff={diffScore}
               unit=" / 100"
               diffUnit=" pts"
+              isReverseGood={true}
             />
+
             <CompareRow
-              label="Crowding risk level"
-              baseline={curCrowd}
-              scenario={scnCrowd}
-              diff={null}
+              label="Physician Workload Ratio"
+              baseline={`${curDocRatio} pts/MD`}
+              scenario={`${scnDocRatio} pts/MD`}
+              diff={diffDocRatio}
+              diffUnit=" pts/MD"
+              isReverseGood={true}
             />
+
             <CompareRow
-              label="Patient arrival rate"
-              baseline={curArr}
-              scenario={scnArr}
-              diff={diffArr}
-              unit=" /hr"
-              diffUnit=" /hr"
+              label="Nursing Workload Ratio"
+              baseline={`${curNurseRatio} pts/RN`}
+              scenario={`${scnNurseRatio} pts/RN`}
+              diff={diffNurseRatio}
+              diffUnit=" pts/RN"
+              isReverseGood={true}
             />
+
             <CompareRow
-              label="Bed occupancy"
-              baseline={BASELINE_STATE.occupancy_percent}
-              scenario={scenarioControls.occupancy_percent}
+              label="Bed Occupancy"
+              baseline={`${BASELINE_STATE.occupancy_percent}%`}
+              scenario={`${scenarioControls.occupancy_percent}%`}
               diff={scenarioControls.occupancy_percent - BASELINE_STATE.occupancy_percent}
               unit="%"
               diffUnit="%"
+              isReverseGood={true}
             />
+
             <CompareRow
-              label="Available beds"
-              baseline={BASELINE_STATE.available_beds}
-              scenario={scenarioControls.available_beds}
+              label="Available Staffed Beds"
+              baseline={`${BASELINE_STATE.available_beds} beds`}
+              scenario={`${scenarioControls.available_beds} beds`}
               diff={scenarioControls.available_beds - BASELINE_STATE.available_beds}
-              unit=" beds"
               diffUnit=" beds"
             />
+
             <CompareRow
-              label="Flow regime"
+              label="Patient Arrival Velocity"
+              baseline={`${curArr} /hr`}
+              scenario={`${scnArr} /hr`}
+              diff={diffArr}
+              diffUnit=" /hr"
+            />
+
+            <CompareRow
+              label="Flow Regime Cluster"
               baseline={curFlow}
               scenario={scnFlow}
               diff={null}
@@ -648,13 +778,22 @@ export default function ScenarioSimulator() {
             />
           </div>
 
-          {/* ── Operational Interpretation ────────────────────────────────────── */}
+          {/* Operational Interpretation */}
           <div className="rounded-md border border-border bg-surface p-5 shadow-soft">
             <h3 className="text-[14px] font-bold uppercase tracking-wider text-navy border-b border-border pb-3 mb-3">
               Operational Interpretation
             </h3>
             <p className="text-[13.5px] leading-relaxed text-navy">
-              {interpretationText}
+              {diffWait !== null && Math.abs(diffWait) >= 1
+                ? `Expected waiting time is projected to ${diffWait > 0 ? "increase" : "decrease"} by approximately ${Math.abs(diffWait)} minutes compared to baseline conditions.`
+                : "Projected outcomes remain within expected operational parameters under the current scenario configuration."}{" "}
+              {scnScore !== null && curScore !== null && (
+                diffScore > 10
+                  ? `Crowding risk score rises from ${curScore} to ${scnScore} — placing the department in ${scnCrowd} risk.`
+                  : diffScore < -5
+                  ? `Crowding risk score improves from ${curScore} to ${scnScore}, significantly mitigating departmental strain.`
+                  : ""
+              )}
             </p>
 
             {/* Top contributing factors */}
@@ -678,6 +817,14 @@ export default function ScenarioSimulator() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Safety Disclaimer for Simulation */}
+          <div className="rounded-md border border-border bg-bg p-3.5 text-[11.5px] text-navy-soft flex items-center gap-2">
+            <Info className="h-4 w-4 text-blue shrink-0" />
+            <span>
+              <strong className="text-navy uppercase">SIMULATION / WHAT-IF NOTICE:</strong> These values represent model-projected outcomes for resource management planning. They do not constitute actual patient records or guaranteed future clinical outcomes.
+            </span>
           </div>
         </div>
       )}

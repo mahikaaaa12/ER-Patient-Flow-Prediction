@@ -143,7 +143,31 @@ class IntentDetector:
         (r"congestion", 0.82),
     ]
 
-    # 11. GENERAL STATUS PATTERNS
+    # 11. OPERATIONAL COMMAND & WORKLOAD PATTERNS
+    OPERATIONAL_COMMAND_PATTERNS = [
+        (r"what('s|\s+is)\s+(the\s+)?(biggest|top|primary|main)\s+(issue|concern|problem|priority|operational\s+concern)", 0.95),
+        (r"what('s|\s+is)\s+(the\s+)?biggest\s+issue\s+right\s+now", 0.95),
+        (r"what\s+(needs|requires)\s+attention(\s+right\s+now)?", 0.95),
+        (r"why\s+is\s+(the\s+)?(er|ed|workload|pressure)\s+(high|under\s+pressure|elevated|critical)", 0.95),
+        (r"why\s+is\s+workload\s+high", 0.95),
+        (r"what\s+should\s+(staff|we)\s+monitor\s*(next|over\s+the\s+next)?", 0.95),
+        (r"which\s+(resource|operational\s+area|area)\s+(has|is\s+under)\s+(the\s+)?(most|highest)\s+pressure", 0.95),
+        (r"why\s+is\s+triage\s+capacity\s+being\s+flagged", 0.95),
+        (r"what\s+factors\s+are\s+contributing\s+to\s+(the\s+)?(current\s+)?(crowding|wait)", 0.95),
+        (r"biggest\s+issue", 0.92),
+        (r"operational\s+(command|concern|priority|orchestrator)", 0.92),
+    ]
+
+    # 12. SIMULATION INQUIRY PATTERNS
+    SIMULATION_PATTERNS = [
+        (r"can\s+i\s+simulate\s+adding\s+a\s+nurse", 0.95),
+        (r"(can\s+i|how\s+to)\s+simulate", 0.95),
+        (r"what\s+happens\s+if\s+we\s+add", 0.95),
+        (r"simulate\s+(adding|increasing|changing)", 0.95),
+        (r"simulation\s+(guidance|help|options)", 0.95),
+    ]
+
+    # 13. GENERAL STATUS PATTERNS
     GENERAL_STATUS_PATTERNS = [
         (r"what\s*(should|needs|do)\s*(the\s*)?(er|ed|emergency\s*room)?\s*(staff\s*)?(pay\s*)?attention\s*(to)?", 0.95),
         (r"what\s*needs\s*attention", 0.95),
@@ -189,6 +213,8 @@ class IntentDetector:
             (Intent.MODEL_INFO, self.MODEL_INFO_PATTERNS),
             (Intent.PROJECT_INFO, self.PROJECT_INFO_PATTERNS),
             (Intent.KNOWLEDGE_QUERY, self.KNOWLEDGE_PATTERNS),
+            (Intent.OPERATIONAL_COMMAND, self.OPERATIONAL_COMMAND_PATTERNS),
+            (Intent.SIMULATION_INQUIRY, self.SIMULATION_PATTERNS),
             (Intent.WAITING_TIME, self.WAITING_TIME_PATTERNS),
             (Intent.PATIENT_VOLUME, self.PATIENT_VOLUME_PATTERNS),
             (Intent.FLOW_PATTERN, self.FLOW_PATTERN_PATTERNS),

@@ -35,22 +35,24 @@ const ML_INTENTS = [
   "HIGH_DEMAND_PERIOD",
   "FLOW_PATTERN",
   "GENERAL_STATUS",
+  "OPERATIONAL_COMMAND",
+  "SIMULATION_INQUIRY",
 ];
 
 const SUGGESTED_QUESTIONS = [
-  "How busy is the ER right now?",
-  "What are the ESI level 1 triage guidelines?",
-  "What is the expected patient volume?",
-  "Will crowding increase?",
-  "What is the current waiting-time risk?",
+  "What's the biggest issue right now?",
+  "Why is workload high?",
+  "What should staff monitor next?",
+  "Which resource is under the most pressure?",
+  "Can I simulate adding a nurse?",
 ];
 
 const TOPIC_CATEGORIES = [
-  { label: "Patient Flow", query: "How busy is the ER right now?", icon: Activity },
-  { label: "Waiting Times", query: "What is the current waiting-time risk?", icon: Clock },
-  { label: "Triage Protocols", query: "What are the ESI level 1 triage guidelines?", icon: BookOpen },
-  { label: "Crowding Risk", query: "Will crowding increase?", icon: ShieldAlert },
-  { label: "Demand Forecasts", query: "What is the expected patient volume?", icon: TrendingUp },
+  { label: "Biggest Issue", query: "What's the biggest issue right now?", icon: AlertTriangle },
+  { label: "Workload Rationale", query: "Why is workload high?", icon: Activity },
+  { label: "Upcoming Monitoring", query: "What should staff monitor next?", icon: Clock },
+  { label: "Resource Strain", query: "Which resource is under the most pressure?", icon: ShieldAlert },
+  { label: "Scenario Simulation", query: "Can I simulate adding a nurse?", icon: TrendingUp },
 ];
 
 function MLPredictionCard({ data, intent, confidence, timestamp }) {
