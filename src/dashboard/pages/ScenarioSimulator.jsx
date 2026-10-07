@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   Users,
   Clock,
+  TrendingUp,
 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import StatusBadge from "../components/StatusBadge";
