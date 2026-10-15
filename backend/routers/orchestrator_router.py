@@ -2,7 +2,12 @@ import asyncio
 import logging
 from fastapi import APIRouter, HTTPException, status
 from ..schemas.hospital_state import HospitalState
-from ..schemas.orchestrator import OrchestratorRequest, OrchestratorResponse
+from ..schemas.orchestrator import (
+    OrchestratorRequest,
+    OrchestratorResponse,
+    OrchestratorAnalysisRequest,
+)
+from ..schemas.overview import DashboardOverviewResponse
 from ..services.orchestrator_service import orchestrator_service
 
 logger = logging.getLogger("erflow.orchestrator_router")
@@ -10,20 +15,42 @@ logger = logging.getLogger("erflow.orchestrator_router")
 router = APIRouter(prefix="/api", tags=["ED Command & Workload Orchestrator"])
 
 
+def _extract_state_and_overview(req: OrchestratorAnalysisRequest):
+    """Safely extracts HospitalState and optional DashboardOverviewResponse from flexible request."""
+    if req.hospital_state:
+        state = HospitalState(**req.hospital_state)
+    else:
+        state_dict = {
+            k: v for k, v in req.model_dump().items()
+            if v is not None and k not in ["hospital_state", "predictions"]
+        }
+        state = HospitalState(**state_dict) if state_dict else HospitalState()
+
+    overview = None
+    if req.predictions:
+        try:
+            overview = DashboardOverviewResponse(**req.predictions)
+        except Exception as e:
+            logger.warning(f"Could not parse passed predictions into DashboardOverviewResponse: {e}")
+            overview = None
+
+    return state, overview
+
+
 @router.post(
     "/orchestrator/analyze",
     response_model=OrchestratorResponse,
     summary="Evaluate ED workload strain, prioritized issues, and resource recommendations"
 )
-async def analyze_ed_operations(state: HospitalState):
+async def analyze_ed_operations(req: OrchestratorAnalysisRequest):
     """
     Evaluates real ER operational telemetry and consumes outputs from all 5 ML models
-    (LSTM forecast, XGBoost Regressor, XGBoost Classifier, K-Means flow patterns, DBSCAN surge)
-    to generate a unified workload strain score, staffing ratios, prioritized issues, and
-    department-level resource recommendations.
+    (LSTM forecast, XGBoost Regressor, XGBoost Classifier, K-Means flow patterns, DBSCAN surge).
+    Supports either direct HospitalState flat fields or nested hospital_state and predictions.
     """
     try:
-        return await asyncio.to_thread(orchestrator_service.analyze_operations, state)
+        state, overview = _extract_state_and_overview(req)
+        return await asyncio.to_thread(orchestrator_service.analyze_operations, state, overview)
     except Exception as e:
         logger.error(f"Error in ED Command Orchestrator analysis: {e}", exc_info=True)
         raise HTTPException(
@@ -55,9 +82,9 @@ async def get_default_ed_orchestrator_analysis():
     response_model=OrchestratorResponse,
     summary="Alias endpoint for ED Command Orchestrator"
 )
-async def analyze_ed_operations_alias(state: HospitalState):
+async def analyze_ed_operations_alias(req: OrchestratorAnalysisRequest):
     """Alias route supporting /api/operations/orchestrator."""
-    return await analyze_ed_operations(state)
+    return await analyze_ed_operations(req)
 
 
 # ==============================================================================
@@ -98,12 +125,13 @@ async def get_action_queue(filter_status: str = "ALL"):
     response_model=ActionQueueResponse,
     summary="Sync action queue with current hospital state and retrieve items"
 )
-async def sync_action_queue(state: HospitalState, filter_status: str = "ALL"):
+async def sync_action_queue(req: OrchestratorAnalysisRequest, filter_status: str = "ALL"):
     """
     Evaluates current ER state, syncs new recommendations into Action Queue, and returns filtered task items.
     """
     try:
-        return await asyncio.to_thread(action_queue_service.get_action_queue, state, filter_status)
+        state, overview = _extract_state_and_overview(req)
+        return await asyncio.to_thread(action_queue_service.get_action_queue, state, filter_status, overview)
     except Exception as e:
         logger.error(f"Error syncing action queue: {e}", exc_info=True)
         raise HTTPException(
@@ -123,7 +151,19 @@ async def update_action_status(action_id: str, payload: UpdateActionStatusReques
     Accepts: {"status": "ACKNOWLEDGED"} or "MONITORING" or "COMPLETED" or "NEW".
     """
     try:
-        return await asyncio.to_thread(action_queue_service.update_action_status, action_id, payload.status)
+        return await asyncio.to_thread(
+            action_queue_service.update_action_status,
+            action_id,
+            payload.status,
+            response_option=payload.response_option,
+            notes=payload.notes,
+            acknowledged_at=payload.acknowledged_at,
+            acknowledged_by=payload.acknowledged_by,
+            resolved_at=payload.resolved_at,
+            resolution_notes=payload.resolution_notes,
+            resolved_by=payload.resolved_by,
+            extra_data=payload.model_dump(),
+        )
     except KeyError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:

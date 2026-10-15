@@ -327,6 +327,14 @@ export default function ScenarioSimulator() {
 
       <CentralContextBanner moduleName="ER Scenario Simulator" />
 
+      {/* Simulation Safety & Operational Isolation Banner */}
+      <div className="flex items-center gap-2.5 rounded-lg border border-purple-300 bg-purple-50/70 p-3.5 text-[12px] text-purple-900 shadow-soft">
+        <Info className="h-4.5 w-4.5 shrink-0 text-purple-700" />
+        <p className="leading-relaxed">
+          <strong className="font-bold text-purple-950">Hypothetical Simulation Environment:</strong> Simulation adjustments and projected metrics represent what-if models for exploration only. They do <strong>NOT</strong> alter live hospital operational telemetry or modify real Action Queue task records.
+        </p>
+      </div>
+
       {/* Mode / error banners */}
       {isDemoMode && (
         <div className="flex items-center gap-2 rounded-md border border-amber/40 bg-amber-tint px-4 py-2.5 text-[12.5px] text-amber-dark">
@@ -354,7 +362,7 @@ export default function ScenarioSimulator() {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="rounded bg-blue px-2 py-0.5 text-[10px] font-bold uppercase text-white">
-                    SIMULATION / WHAT-IF INTERVENTION
+                    WHAT-IF SIMULATION (HYPOTHETICAL)
                   </span>
                   <span className="font-mono text-[11px] font-bold text-blue uppercase">
                     {passedIntervention.category}
@@ -380,7 +388,7 @@ export default function ScenarioSimulator() {
               <strong className="text-blue-dark">Suggested Action:</strong> {passedIntervention.recommended_action}
             </p>
             <p className="mt-1 text-[11.5px] text-navy-soft">
-              Scenario controls below have been pre-populated with suggested intervention deltas. Click <strong>"Run Scenario"</strong> to evaluate projected workload improvement.
+              Scenario controls below have been pre-populated with suggested intervention deltas. Projections are purely hypothetical and do not alter actual department action queue records. Click <strong>"Run Scenario"</strong> to evaluate projected workload improvement.
             </p>
           </div>
         </div>

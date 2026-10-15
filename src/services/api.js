@@ -206,10 +206,11 @@ export const erflowApi = {
     return fetchWithReliability(`/api/orchestrator/action-queue${q}`, { method: "GET" }, 2, 30000);
   },
 
-  async updateActionStatus(actionId, status) {
+  async updateActionStatus(actionId, status, extraData = {}) {
+    const payload = typeof status === "object" ? status : { status, ...extraData };
     return fetchWithReliability(`/api/orchestrator/action-queue/${encodeURIComponent(actionId)}/status`, {
       method: "PATCH",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(payload),
     }, 2, 15000);
   },
 

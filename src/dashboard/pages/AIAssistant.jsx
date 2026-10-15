@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   BookOpen,
   Bot,
-  CheckCircle2,
   ChevronDown,
   Clock,
   Cpu,
@@ -22,199 +21,57 @@ import {
 import PageHeader from "../components/PageHeader";
 import PageCard from "../components/PageCard";
 import ModelBadge from "../components/ModelBadge";
-import MLContextCard from "../components/MLContextCard";
+import OperationalReport from "../components/OperationalReport";
 import { erflowApi } from "../../services/api";
 import { AI_MODEL_CONTEXT } from "../mockData";
-import { useMode } from "../../context/ModeContext";
-
-// Prediction Intents requiring structured ML display
-const ML_INTENTS = [
-  "PATIENT_VOLUME",
-  "WAITING_TIME",
-  "CROWDING",
-  "HIGH_DEMAND_PERIOD",
-  "FLOW_PATTERN",
-  "GENERAL_STATUS",
-  "OPERATIONAL_COMMAND",
-  "SIMULATION_INQUIRY",
-];
+import { useERContext } from "../../context/ERContext";
 
 const SUGGESTED_QUESTIONS = [
   "What's the biggest issue right now?",
   "Why is workload high?",
+  "What's the current waiting-time risk?",
+  "Will crowding increase?",
+  "What are the ESI level 1 triage guidelines?",
   "What should staff monitor next?",
-  "Which resource is under the most pressure?",
-  "Can I simulate adding a nurse?",
 ];
 
 const TOPIC_CATEGORIES = [
   { label: "Biggest Issue", query: "What's the biggest issue right now?", icon: AlertTriangle },
   { label: "Workload Rationale", query: "Why is workload high?", icon: Activity },
-  { label: "Upcoming Monitoring", query: "What should staff monitor next?", icon: Clock },
-  { label: "Resource Strain", query: "Which resource is under the most pressure?", icon: ShieldAlert },
-  { label: "Scenario Simulation", query: "Can I simulate adding a nurse?", icon: TrendingUp },
+  { label: "Waiting Time Risk", query: "What's the current waiting-time risk?", icon: Clock },
+  { label: "Crowding Outlook", query: "Will crowding increase?", icon: ShieldAlert },
+  { label: "ESI Triage Protocol", query: "What are the ESI level 1 triage guidelines?", icon: BookOpen },
+  { label: "Upcoming Monitoring", query: "What should staff monitor next?", icon: TrendingUp },
 ];
 
-function MLPredictionCard({ data, intent, confidence, timestamp }) {
-  const { isRealMode } = useMode();
-  if (!data || typeof data !== "object") return null;
-
-  // Validation failure / Clarification state
-  if (data.validation_failed) {
-    return (
-      <div className="mt-3 rounded-md border border-amber/30 bg-amber-tint/60 px-3.5 py-2.5 text-[12px] text-amber-dark">
-        <div className="flex items-center gap-1.5 font-semibold">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber" />
-          <span>Clarification Required for Model Input</span>
-        </div>
-        <p className="mt-1 text-[11.5px] text-navy-soft">
-          Please specify requested date, time, or triage acuity parameters so the model can generate a precise prediction.
-        </p>
-      </div>
-    );
-  }
-
-  // Extract primary prediction value
-  const predictionVal =
-    data.predicted_volume !== undefined ? `${data.predicted_volume} arrivals` :
-    data.estimated_wait_minutes !== undefined ? `${data.estimated_wait_minutes} mins` :
-    data.crowding_level ||
-    data.status ||
-    data.pattern_name ||
-    (data.cluster_id !== undefined ? `Cluster #${data.cluster_id}` : null) ||
-    data.prediction ||
-    "N/A";
-
-  const modelName = data.adapter || data.model_name || "Real ML Model Adapter";
-
-  // Build WHAT THE MODEL SEES strictly from available inputs
-  const inputsSees = [];
-  if (data.patients_waiting !== undefined) inputsSees.push(`${data.patients_waiting} patients waiting`);
-  if (data.arrival_rate !== undefined) inputsSees.push(`${data.arrival_rate} arrivals/hr`);
-  if (data.occupancy_percent !== undefined) inputsSees.push(`${data.occupancy_percent}% occupancy`);
-  if (inputsSees.length === 0) {
-    if (isRealMode) {
-      inputsSees.push("Live ER Operational State");
-    } else {
-      inputsSees.push("24 patients waiting (Demo)", "28 arrivals/hr (Demo)", "78% occupancy (Demo)");
-    }
-  }
-
+function UserMessageBubble({ text }) {
   return (
-    <div className="mt-3">
-      <MLContextCard
-        sees={inputsSees}
-        predicts={String(predictionVal)}
-        when={data.expected_window || data.time_window || "Next 3 Hours"}
-        source={modelName}
-      />
+    <div className="flex items-start justify-end gap-2.5">
+      <div className="max-w-[85%] sm:max-w-[75%] rounded-2xl rounded-tr-sm bg-navy px-4 py-2.5 text-[13.5px] leading-relaxed text-white shadow-soft">
+        <p className="whitespace-pre-wrap">{text}</p>
+      </div>
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-navy text-white shadow-soft">
+        <User className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
+      </span>
     </div>
   );
 }
 
-function PredictionUnavailableBadge({ intent }) {
+function AssistantReportMessage({ message, operationalState }) {
   return (
-    <div className="mt-3 rounded-md border border-border bg-bg px-3.5 py-2.5 text-[12px] text-navy-soft">
-      <div className="flex items-center gap-1.5 font-semibold text-navy">
-        <AlertTriangle className="h-3.5 w-3.5 text-amber" />
-        <span>Prediction Currently Unavailable</span>
-      </div>
-      <p className="mt-1 text-[11.5px]">
-        The required ML model for <code className="font-mono font-semibold text-navy">{intent}</code> could not be executed or is currently offline.
-      </p>
-    </div>
-  );
-}
-
-/**
- * Safely parses markdown bold (**text**) syntax into React <strong> nodes
- * without using dangerouslySetInnerHTML.
- */
-function renderFormattedText(text) {
-  if (!text || typeof text !== "string") return text;
-  if (!text.includes("**")) return text;
-
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, index) => {
-    if (part.startsWith("**") && part.endsWith("**") && part.length >= 4) {
-      return (
-        <strong key={index} className="font-bold">
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
-    return part;
-  });
-}
-
-function Bubble({ role, text, intent, confidence, data, timestamp, isError }) {
-  const isUser = role === "user";
-  const isMLIntent = ML_INTENTS.includes(intent);
-  const isKnowledge = intent === "KNOWLEDGE_QUERY" || data?.rag_retrieval === true;
-  const hasMLData = data && typeof data === "object" && !data.validation_failed;
-
-  // Extract subtle source names if present
-  const sources = Array.isArray(data?.sources) && data.sources.length > 0 ? data.sources : null;
-
-  return (
-    <div className={`flex items-start gap-2.5 ${isUser ? "flex-row-reverse" : ""}`}>
+    <div className="flex items-start gap-2.5 sm:gap-3 w-full">
       <span
-        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-          isUser ? "bg-navy text-white" : isError ? "bg-red-tint text-red" : "bg-blue-tint text-blue"
+        className={`mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-soft ${
+          message.isError
+            ? "border border-red/30 bg-red-tint text-red"
+            : "border border-blue/30 bg-blue-tint text-blue"
         }`}
       >
-        {isUser ? (
-          <User className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
-        ) : (
-          <Bot className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
-        )}
+        <Bot className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
       </span>
-      <div className={`min-w-0 max-w-[88%] sm:max-w-[78%] ${isUser ? "flex flex-col items-end" : ""}`}>
-        {/* Natural Language Primary Message */}
-        <div
-          className={`rounded-lg px-4 py-3 text-[13.5px] leading-relaxed ${
-            isUser
-              ? "rounded-tr-sm bg-navy text-white"
-              : isError
-              ? "rounded-tl-sm border border-red/30 bg-red-tint text-red"
-              : "rounded-tl-sm border border-border bg-surface text-navy"
-          }`}
-        >
-          {renderFormattedText(text)}
-        </div>
 
-        {/* Distinction: General Assistant vs Knowledge Retrieval vs ML Prediction Result */}
-        {!isUser && !isError && (
-          <>
-            {isKnowledge ? (
-              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11.5px] text-navy-soft">
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-blue/30 bg-blue-tint/70 px-2.5 py-1 font-sans text-[11.5px] font-medium text-blue-dark">
-                  <BookOpen className="h-3.5 w-3.5 text-blue" />
-                  Knowledge Base Source: <span className="font-semibold">{sources ? sources.join(", ") : "Hospital Documents"}</span>
-                </span>
-              </div>
-            ) : !isMLIntent ? (
-              <div className="mt-1.5 flex items-center gap-2 text-[11px] text-navy-soft">
-                <span className="rounded-md border border-border bg-bg px-2 py-0.5 font-mono font-semibold">
-                  💬 Operational Assistant ({intent || "GENERAL"})
-                </span>
-              </div>
-            ) : (
-              <>
-                {hasMLData ? (
-                  <MLPredictionCard
-                    data={data}
-                    intent={intent}
-                    confidence={confidence}
-                    timestamp={timestamp}
-                  />
-                ) : (
-                  <PredictionUnavailableBadge intent={intent} />
-                )}
-              </>
-            )}
-          </>
-        )}
+      <div className="min-w-0 flex-1 max-w-[100%] sm:max-w-[94%]">
+        <OperationalReport message={message} operationalContext={operationalState} />
       </div>
     </div>
   );
@@ -223,15 +80,15 @@ function Bubble({ role, text, intent, confidence, data, timestamp, isError }) {
 function IntroState({ onAsk }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6 px-2 py-10 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-tint text-blue shadow-soft border border-blue/20">
+      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-tint text-blue shadow-soft border border-blue/20">
         <Bot className="h-6 w-6" strokeWidth={2.25} aria-hidden="true" />
       </span>
       <div>
-        <h3 className="text-[18px] font-semibold tracking-tight text-navy sm:text-[20px]">
+        <h3 className="text-[18px] font-bold tracking-tight text-navy sm:text-[20px]">
           ER Operations Companion
         </h3>
         <p className="mx-auto mt-1.5 max-w-md text-[13.5px] leading-relaxed text-navy-soft">
-          Ask questions about live patient volume, queue waiting times, crowding risk, and ER triage knowledge base protocols.
+          Ask questions about patient demand, wait times, crowding risk, and clinical triage knowledge base protocols. Every answer is formatted as a structured operational report.
         </p>
       </div>
 
@@ -241,7 +98,7 @@ function IntroState({ onAsk }) {
             key={q}
             type="button"
             onClick={() => onAsk(q)}
-            className="flex items-start gap-2.5 rounded-md border border-border bg-bg p-3 text-left text-[13px] font-medium text-navy transition-all hover:border-blue/40 hover:bg-blue-tint hover:text-blue-dark shadow-soft"
+            className="flex items-start gap-2.5 rounded-lg border border-border bg-bg p-3 text-left text-[12.5px] font-medium text-navy transition-all hover:border-blue/40 hover:bg-blue-tint hover:text-blue-dark shadow-soft"
           >
             <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-blue" />
             <span>{q}</span>
@@ -251,8 +108,6 @@ function IntroState({ onAsk }) {
     </div>
   );
 }
-
-import { useERContext } from "../../context/ERContext";
 
 export default function AIAssistant() {
   const { operationalState, predictions } = useERContext();
@@ -267,7 +122,7 @@ export default function AIAssistant() {
     if (messages.length) {
       endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
-  }, [messages]);
+  }, [messages, loading]);
 
   async function sendMessage(text) {
     const trimmed = text.trim();
@@ -321,37 +176,37 @@ export default function AIAssistant() {
       <PageHeader
         section="ASSISTANT"
         title="Operations Companion"
-        subtitle="Operational questions, waiting times, crowding risk, and ER triage knowledge base guidance."
+        subtitle="Operational command reports, wait-time risk assessments, crowding outlooks, and clinical triage protocols."
         action={<ModelBadge model="RAG + Intent Router" />}
       />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        {/* Main Chat Panel */}
+        {/* Main Chat & Report Panel */}
         <PageCard
           title="ER Operations Companion"
-          subtitle="Ask questions about patient demand, waiting times, crowding risk, triage protocols, and department operations."
+          subtitle="Query live department telemetry, multi-model predictions, and emergency protocols in standardized operational reports."
           icon={Bot}
           className="flex min-w-0 flex-col xl:col-span-2"
         >
-          <div className="flex h-[480px] flex-col gap-5 overflow-y-auto pr-1">
+          <div className="flex h-[560px] flex-col gap-5 overflow-y-auto pr-1 sm:pr-2">
             {hasMessages ? (
               <>
-                {messages.map((m) => (
-                  <Bubble
-                    key={m.id}
-                    role={m.role}
-                    text={m.text}
-                    intent={m.intent}
-                    confidence={m.confidence}
-                    data={m.data}
-                    timestamp={m.timestamp}
-                    isError={m.isError}
-                  />
-                ))}
+                {messages.map((m) =>
+                  m.role === "user" ? (
+                    <UserMessageBubble key={m.id} text={m.text} />
+                  ) : (
+                    <AssistantReportMessage
+                      key={m.id}
+                      message={m}
+                      operationalState={operationalState}
+                    />
+                  )
+                )}
+
                 {loading && (
-                  <div className="flex items-center gap-2 text-[13px] text-navy-soft italic">
+                  <div className="flex items-center gap-2.5 rounded-lg border border-border bg-bg/80 px-4 py-3 text-[12.5px] text-navy-muted shadow-soft">
                     <Loader2 className="h-4 w-4 animate-spin text-blue" />
-                    Checking current ER conditions & knowledge base...
+                    <span>Evaluating current ED telemetry, ML engines & clinical protocols…</span>
                   </div>
                 )}
                 <div ref={endRef} />
@@ -372,14 +227,14 @@ export default function AIAssistant() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about forecasts, crowding, wait times, or triage guidelines…"
+              placeholder="Ask about biggest issue, workload, wait times, crowding, or triage guidelines…"
               disabled={loading}
               className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-3.5 py-2.5 text-[13.5px] text-navy placeholder:text-navy-soft focus:border-blue focus:outline-none disabled:opacity-50"
             />
             <button
               type="submit"
               aria-label="Send message"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue text-white transition-colors hover:bg-blue-dark disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue text-white transition-colors hover:bg-blue-dark disabled:cursor-not-allowed disabled:opacity-50 shadow-soft"
               disabled={!input.trim() || loading}
             >
               {loading ? (
@@ -406,7 +261,7 @@ export default function AIAssistant() {
                   <Percent className="h-3.5 w-3.5" />
                 </div>
                 <p className="text-[10.5px] font-semibold uppercase tracking-wider text-navy-soft">Occupancy</p>
-                <p className="mt-0.5 text-[15px] font-bold text-navy">{operationalState?.occupancy_percent || 78}%</p>
+                <p className="mt-0.5 text-[15px] font-bold text-navy">{operationalState?.occupancy_percent ?? 78}%</p>
               </div>
 
               <div className="rounded-md border border-border bg-bg p-3 text-center">
@@ -414,7 +269,7 @@ export default function AIAssistant() {
                   <Users className="h-3.5 w-3.5" />
                 </div>
                 <p className="text-[10.5px] font-semibold uppercase tracking-wider text-navy-soft">Waiting</p>
-                <p className="mt-0.5 text-[15px] font-bold text-navy">{operationalState?.patients_waiting || 24} pts</p>
+                <p className="mt-0.5 text-[15px] font-bold text-navy">{operationalState?.patients_waiting ?? 24} pts</p>
               </div>
 
               <div className="rounded-md border border-border bg-bg p-3 text-center">
@@ -422,7 +277,7 @@ export default function AIAssistant() {
                   <ShieldAlert className="h-3.5 w-3.5" />
                 </div>
                 <p className="text-[10.5px] font-semibold uppercase tracking-wider text-navy-soft">Crowding</p>
-                <p className="mt-0.5 text-[13px] font-bold text-red">{predictions?.crowding_risk?.crowding_level || "--"}</p>
+                <p className="mt-0.5 text-[13px] font-bold text-red">{predictions?.crowding_risk?.crowding_level || "HIGH"}</p>
               </div>
             </div>
           </PageCard>

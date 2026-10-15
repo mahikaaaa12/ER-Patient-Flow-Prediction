@@ -69,8 +69,9 @@ class EDActionQueueService:
         for rec in orch_res.recommended_actions:
             action_id = rec.id
 
-            # Determine source prediction engine label
-            if rec.category == "BED CAPACITY":
+            if rec.source_prediction:
+                source_pred = rec.source_prediction
+            elif rec.category == "BED CAPACITY":
                 source_pred = "Supervised XGBoost Classifier (Crowding Risk)"
             elif rec.category == "TRIAGE CAPACITY" or rec.category == "WAITING QUEUE":
                 source_pred = "Supervised XGBoost Regressor (Wait Time)"
@@ -95,6 +96,25 @@ class EDActionQueueService:
             if action_id in self._actions:
                 # Update dynamic fields while preserving user workflow state
                 existing = self._actions[action_id]
+                
+                # Check if underlying issue changed while acknowledged or monitoring
+                if existing.status in [ActionStatus.ACKNOWLEDGED, ActionStatus.MONITORING]:
+                    if existing.priority != rec.priority or rec.escalation_detected:
+                        existing.condition_changed_since_ack = True
+                        existing.condition_change_summary = (
+                            f"Operational severity updated from {existing.priority} to {rec.priority} "
+                            f"({rec.issue_trend})"
+                        )
+                        existing.audit_history.append({
+                            "timestamp": now_iso,
+                            "event": "UNDERLYING_CONDITION_CHANGED",
+                            "previous_priority": existing.priority,
+                            "new_priority": rec.priority,
+                            "issue_trend": rec.issue_trend,
+                            "escalation_detected": rec.escalation_detected,
+                            "details": existing.condition_change_summary,
+                        })
+
                 existing.title = rec.title
                 existing.recommendation = rec.recommended_action
                 existing.priority = rec.priority
@@ -103,6 +123,12 @@ class EDActionQueueService:
                 existing.urgency = rec.urgency
                 existing.reason = rec.reason
                 existing.explanation_detail = rec.explanation_detail.model_dump() if rec.explanation_detail else None
+                existing.priority_score = rec.priority_score
+                existing.model_confidence = rec.model_confidence
+                existing.issue_trend = rec.issue_trend
+                existing.escalation_detected = rec.escalation_detected
+                existing.requires_human_confirmation_to_resolve = rec.requires_human_confirmation_to_resolve
+                existing.historical_occurrence_count = rec.historical_occurrence_count
             else:
                 # Create new action item with NEW status
                 new_item = ActionItem(
@@ -119,6 +145,18 @@ class EDActionQueueService:
                     urgency=rec.urgency,
                     reason=rec.reason,
                     explanation_detail=rec.explanation_detail.model_dump() if rec.explanation_detail else None,
+                    priority_score=rec.priority_score,
+                    model_confidence=rec.model_confidence,
+                    issue_trend=rec.issue_trend,
+                    escalation_detected=rec.escalation_detected,
+                    requires_human_confirmation_to_resolve=rec.requires_human_confirmation_to_resolve,
+                    historical_occurrence_count=rec.historical_occurrence_count,
+                    audit_history=[{
+                        "timestamp": now_iso,
+                        "event": "ACTION_DETECTED",
+                        "priority": rec.priority,
+                        "details": f"Issue detected with {rec.priority} priority by {source_pred}",
+                    }],
                 )
                 self._actions[action_id] = new_item
 
@@ -128,7 +166,8 @@ class EDActionQueueService:
     def get_action_queue(
         self,
         hospital_state: Optional[HospitalState] = None,
-        filter_status: str = "ALL"
+        filter_status: str = "ALL",
+        overview: Optional[Any] = None,
     ) -> ActionQueueResponse:
         """
         Retrieves action queue with status/priority filtering and summary metrics.
@@ -136,13 +175,13 @@ class EDActionQueueService:
         """
         if hospital_state is not None:
             from .orchestrator_service import orchestrator_service
-            orch_res = orchestrator_service.analyze_operations(hospital_state)
+            orch_res = orchestrator_service.analyze_operations(hospital_state, overview=overview)
             self.sync_with_orchestrator(orch_res)
         elif not self._actions:
             # Seed default queue if store is empty
             from .orchestrator_service import orchestrator_service
             default_state = HospitalState()
-            orch_res = orchestrator_service.analyze_operations(default_state)
+            orch_res = orchestrator_service.analyze_operations(default_state, overview=overview)
             self.sync_with_orchestrator(orch_res)
 
         all_items = list(self._actions.values())
@@ -183,23 +222,116 @@ class EDActionQueueService:
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
-    def update_action_status(self, action_id: str, new_status: ActionStatus) -> ActionItem:
+    def update_action_status(
+        self,
+        action_id: str,
+        new_status: ActionStatus,
+        response_option: Optional[str] = None,
+        notes: Optional[str] = None,
+        acknowledged_at: Optional[str] = None,
+        acknowledged_by: Optional[str] = None,
+        resolved_at: Optional[str] = None,
+        resolution_notes: Optional[str] = None,
+        resolved_by: Optional[str] = None,
+        extra_data: Optional[Dict[str, Any]] = None,
+    ) -> ActionItem:
         """
-        Updates an action item's status (NEW -> ACKNOWLEDGED -> MONITORING -> COMPLETED)
-        and persists the state to JSON store.
+        Updates an action item's status, acknowledgement, and resolution metadata
+        (response_option, notes, acknowledged_at, resolution_notes, resolved_at)
+        and persists the state to JSON store with complete auditable history.
         """
+        now_iso = datetime.now(timezone.utc).isoformat()
+        extra_data = extra_data or {}
+
         if action_id not in self._actions:
             # Fallback search by prefix or slug match
             matched = next((k for k in self._actions.keys() if action_id in k or k in action_id), None)
             if matched:
                 action_id = matched
             else:
-                raise KeyError(f"Action ID '{action_id}' not found in action queue.")
+                # Seed from default orchestrator state if not yet initialized
+                from .orchestrator_service import orchestrator_service
+                default_state = HospitalState()
+                orch_res = orchestrator_service.analyze_operations(default_state)
+                self.sync_with_orchestrator(orch_res)
+                if action_id not in self._actions:
+                    # Create action item populated with extraData or defaults
+                    self._actions[action_id] = ActionItem(
+                        id=action_id,
+                        category=extra_data.get("category", "OPERATIONAL ISSUE"),
+                        title=extra_data.get("title", f"Operational Action {action_id}"),
+                        recommendation=extra_data.get("recommendation", "Review operational parameters"),
+                        priority=extra_data.get("priority", "HIGH"),
+                        created_at=now_iso,
+                        due_time=extra_data.get("due_time", "In 30 mins"),
+                        status=ActionStatus.NEW,
+                        contributing_factors=["Telemetry Load"],
+                        source_prediction="ED Command Orchestrator",
+                        audit_history=[{
+                            "timestamp": now_iso,
+                            "event": "ACTION_CREATED_ON_DEMAND",
+                            "details": f"Created via status update request for '{action_id}'.",
+                        }],
+                    )
 
         item = self._actions[action_id]
+        prev_status = item.status
         item.status = new_status
+
+        # If extra details provided, update them
+        if extra_data.get("title") and not item.title:
+            item.title = extra_data["title"]
+        if extra_data.get("category") and not item.category:
+            item.category = extra_data["category"]
+        if extra_data.get("recommendation") and not item.recommendation:
+            item.recommendation = extra_data["recommendation"]
+
+        # Handling Acknowledgement
+        if new_status == ActionStatus.ACKNOWLEDGED:
+            item.response_option = response_option or item.response_option or "Action Planned"
+            if notes is not None:
+                item.notes = notes
+            item.acknowledged_at = acknowledged_at or item.acknowledged_at or now_iso
+            if acknowledged_by:
+                item.acknowledged_by = acknowledged_by
+            # Clear warning on fresh acknowledgement
+            item.condition_changed_since_ack = False
+            item.condition_change_summary = None
+
+            item.audit_history.append({
+                "timestamp": item.acknowledged_at,
+                "event": "ACTION_ACKNOWLEDGED",
+                "response_option": item.response_option,
+                "notes": item.notes,
+                "acknowledged_by": item.acknowledged_by,
+                "previous_status": prev_status.value if hasattr(prev_status, "value") else str(prev_status),
+            })
+
+        # Handling Resolution (Completed)
+        elif new_status == ActionStatus.COMPLETED:
+            item.resolved_at = resolved_at or now_iso
+            item.resolution_notes = resolution_notes or notes or item.resolution_notes or "Marked resolved by command staff."
+            if resolved_by:
+                item.resolved_by = resolved_by
+
+            item.audit_history.append({
+                "timestamp": item.resolved_at,
+                "event": "ACTION_RESOLVED",
+                "resolution_notes": item.resolution_notes,
+                "resolved_by": item.resolved_by,
+                "previous_status": prev_status.value if hasattr(prev_status, "value") else str(prev_status),
+            })
+
+        # Handling Monitoring or Reopened
+        elif new_status == ActionStatus.NEW and prev_status == ActionStatus.COMPLETED:
+            item.audit_history.append({
+                "timestamp": now_iso,
+                "event": "ACTION_REOPENED",
+                "details": "Operational action reopened for continued monitoring.",
+            })
+
         self._save_storage()
-        logger.info(f"Action '{action_id}' status updated to '{new_status.value}'")
+        logger.info(f"Action '{action_id}' status updated to '{new_status}' (prev: '{prev_status}')")
         return item
 
 

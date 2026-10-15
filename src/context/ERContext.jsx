@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from "react";
 import { erflowApi } from "../services/api";
 import { useMode } from "./ModeContext";
 
@@ -308,8 +308,44 @@ function generateDemoPredictions(state, horizon = "24h") {
   };
 }
 
-  async function updatePredictions(customState = null) {
+  const lastPredictionSignatureRef = useRef("");
+  const activePredictionReqIdRef = useRef(0);
+  const isUpdatingPredictionsRef = useRef(false);
+
+  const getPredictionSignature = (state, isReal) => {
+    if (!state) return "";
+    return [
+      state.occupancy_percent ?? 78,
+      state.patients_waiting ?? 24,
+      state.arrival_rate ?? 28,
+      state.available_beds ?? 8,
+      state.available_doctors ?? 5,
+      state.available_nurses ?? 9,
+      state.severity_level ?? 3.0,
+      isReal ? "real" : "demo",
+    ].join("|");
+  };
+
+  async function updatePredictions(customState = null, force = false) {
     const stateToUse = customState || operationalState;
+    const currentSig = getPredictionSignature(stateToUse, isRealMode);
+
+    // Deduplicate: skip if identical input signature already predicted successfully unless forced
+    if (!force && currentSig === lastPredictionSignatureRef.current && predictions && !error) {
+      console.log("[ERContext] Input snapshot unchanged & predictions ready → skipping duplicate prediction request");
+      return predictions;
+    }
+
+    // Skip if an identical request is already actively running
+    if (!force && isUpdatingPredictionsRef.current && currentSig === lastPredictionSignatureRef.current) {
+      console.log("[ERContext] Prediction update already in-flight for this snapshot → skipping redundant trigger");
+      return;
+    }
+
+    const reqId = ++activePredictionReqIdRef.current;
+    isUpdatingPredictionsRef.current = true;
+    lastPredictionSignatureRef.current = currentSig;
+
     setLoading(true);
     setError(null);
     setModelStatus({
@@ -324,6 +360,12 @@ function generateDemoPredictions(state, horizon = "24h") {
       const res = isRealMode
         ? await erflowApi.getDashboardOverview(stateToUse)
         : generateDemoPredictions(stateToUse);
+
+      // Discard response if a newer prediction request superseded this one
+      if (reqId !== activePredictionReqIdRef.current) {
+        console.log(`[ERContext] Discarding outdated prediction response #${reqId} (active is #${activePredictionReqIdRef.current})`);
+        return;
+      }
 
       if (res) {
         setPredictions(res);
@@ -351,17 +393,22 @@ function generateDemoPredictions(state, horizon = "24h") {
         }
       }
     } catch (err) {
-      console.warn("Central prediction update failed:", err.message);
-      setError(err);
-      setModelStatus({
-        forecast: "error",
-        waiting_time: "error",
-        crowding_risk: "error",
-        flow_pattern: "error",
-        surge_detection: "error",
-      });
+      if (reqId === activePredictionReqIdRef.current) {
+        console.warn("Central prediction update failed:", err.message);
+        setError(err);
+        setModelStatus({
+          forecast: "error",
+          waiting_time: "error",
+          crowding_risk: "error",
+          flow_pattern: "error",
+          surge_detection: "error",
+        });
+      }
     } finally {
-      setLoading(false);
+      if (reqId === activePredictionReqIdRef.current) {
+        isUpdatingPredictionsRef.current = false;
+        setLoading(false);
+      }
     }
   }
 

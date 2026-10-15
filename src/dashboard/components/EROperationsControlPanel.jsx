@@ -50,6 +50,19 @@ export default function EROperationsControlPanel({ className = "" }) {
     };
   }, []);
 
+  const isStateDifferent = (a, b) => {
+    if (!a || !b) return true;
+    return (
+      Number(a.occupancy_percent) !== Number(b.occupancy_percent) ||
+      Number(a.patients_waiting) !== Number(b.patients_waiting) ||
+      Number(a.arrival_rate) !== Number(b.arrival_rate) ||
+      Number(a.available_beds) !== Number(b.available_beds) ||
+      Number(a.available_doctors) !== Number(b.available_doctors) ||
+      Number(a.available_nurses) !== Number(b.available_nurses) ||
+      Number(a.severity_level) !== Number(b.severity_level)
+    );
+  };
+
   const handleChange = (field, val) => {
     const updated = { ...form, [field]: val };
     setForm(updated);
@@ -58,11 +71,21 @@ export default function EROperationsControlPanel({ className = "" }) {
     // Clear any previous timer
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 
-    // After INPUT_DEBOUNCE_MS of inactivity, commit the change to context
-    debounceTimerRef.current = setTimeout(() => {
-      console.log("[COMMAND CENTER] Input settled → committing to context:", updated);
-      setOperationalState(updated);
-      setHasPendingChange(false);
+    // After INPUT_DEBOUNCE_MS of inactivity, commit the change to context and trigger predictions
+    debounceTimerRef.current = setTimeout(async () => {
+      if (isStateDifferent(updated, operationalState)) {
+        console.log("[CONTROL PANEL] Input settled & changed → updating context & requesting predictions:", updated);
+        setOperationalState(updated);
+        setHasPendingChange(false);
+        try {
+          await updatePredictions(updated);
+        } catch (err) {
+          console.warn("[CONTROL PANEL] Prediction update failed:", err.message);
+        }
+      } else {
+        console.log("[CONTROL PANEL] Input settled but values unchanged → skipping prediction request");
+        setHasPendingChange(false);
+      }
       debounceTimerRef.current = null;
     }, INPUT_DEBOUNCE_MS);
   };
@@ -74,10 +97,10 @@ export default function EROperationsControlPanel({ className = "" }) {
       clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = null;
     }
-    console.log("[COMMAND CENTER] Manual 'Update All Predictions' clicked");
+    console.log("[CONTROL PANEL] Manual 'Update All Predictions' clicked");
     setOperationalState(form);
     setHasPendingChange(false);
-    await updatePredictions(form);
+    await updatePredictions(form, true);
   };
 
   return (

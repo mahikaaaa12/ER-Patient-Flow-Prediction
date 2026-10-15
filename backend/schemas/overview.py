@@ -23,12 +23,12 @@ class AssistantQueryResponse(BaseModel):
 
 
 class DashboardOverviewResponse(BaseModel):
-    forecast: ArrivalForecastResponse
-    waiting_time: WaitingTimeResponse
-    crowding_risk: CrowdingRiskResponse
-    flow_pattern: FlowPatternResponse
-    surge_detection: SurgeDetectionResponse
-    ai_summary_text: str
+    forecast: Optional[ArrivalForecastResponse] = None
+    waiting_time: Optional[WaitingTimeResponse] = None
+    crowding_risk: Optional[CrowdingRiskResponse] = None
+    flow_pattern: Optional[FlowPatternResponse] = None
+    surge_detection: Optional[SurgeDetectionResponse] = None
+    ai_summary_text: str = ""
     request_id: Optional[str] = Field(None, description="Unique trace ID for inference request observability")
     execution_time_ms: Optional[float] = Field(None, description="Total backend inference time in milliseconds")
     engine_status: Optional[Dict[str, str]] = Field(None, description="Status for each of the 5 prediction engines")

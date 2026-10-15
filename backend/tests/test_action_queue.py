@@ -16,6 +16,7 @@ from backend.services.orchestrator_service import orchestrator_service
 
 
 def test_action_queue_sync_and_persistence():
+    action_queue_service._actions = {}
     state = HospitalState(occupancy_percent=92.0, patients_waiting=35.0)
     res = action_queue_service.get_action_queue(state, "ALL")
 
@@ -29,9 +30,18 @@ def test_action_queue_sync_and_persistence():
     assert first_item.source_prediction is not None
     assert len(first_item.contributing_factors) > 0
 
-    # Test status update (NEW -> ACKNOWLEDGED)
-    updated = action_queue_service.update_action_status(first_item.id, ActionStatus.ACKNOWLEDGED)
+    # Test status update with acknowledgement metadata (NEW -> ACKNOWLEDGED)
+    updated = action_queue_service.update_action_status(
+        first_item.id,
+        ActionStatus.ACKNOWLEDGED,
+        response_option="Action Planned",
+        notes="Testing operational acknowledgement workflow",
+        acknowledged_at="2026-10-09T14:00:00Z"
+    )
     assert updated.status == ActionStatus.ACKNOWLEDGED
+    assert updated.response_option == "Action Planned"
+    assert updated.notes == "Testing operational acknowledgement workflow"
+    assert updated.acknowledged_at == "2026-10-09T14:00:00Z"
 
     # Test status update (ACKNOWLEDGED -> MONITORING)
     updated_mon = action_queue_service.update_action_status(first_item.id, ActionStatus.MONITORING)
@@ -47,3 +57,4 @@ def test_action_queue_sync_and_persistence():
 
     res_high = action_queue_service.get_action_queue(None, "HIGH PRIORITY")
     assert all(a.priority in ["HIGH", "CRITICAL"] for a in res_high.actions)
+
